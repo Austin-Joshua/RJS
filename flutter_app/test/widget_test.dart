@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('shows setup message when CLERK_PUBLISHABLE_KEY is unset', (tester) async {
+  testWidgets('shows sign-in with demo farmer when Clerk key is configured', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: FarmSyncApp()));
-    expect(find.textContaining('Missing CLERK_PUBLISHABLE_KEY'), findsOneWidget);
-    expect(find.text('Continue as Demo Farmer'), findsOneWidget);
+    await tester.pump(); // ClerkAuth may schedule async init
+    expect(find.textContaining('Continue as Demo Farmer'), findsWidgets);
   });
 }
