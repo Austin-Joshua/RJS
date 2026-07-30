@@ -1,1 +1,0 @@
-# Landroid hackathon API (FastAPI).

@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Web OAuth client ID (same as GOOGLE_SERVER_CLIENT_ID / Supabase Google "Client IDs"). -->
-    <!-- google_sign_in Android uses this for requestIdToken when resolving native options. -->
-    <string name="default_web_client_id">1000749168095-cumck2tqpkjd9kmqg90jl7qa7nt34evs.apps.googleusercontent.com</string>
-</resources>
