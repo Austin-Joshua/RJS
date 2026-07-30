@@ -28,9 +28,11 @@ backend/tests/_test.db
 **/.dart_tool/
 **/.flutter-plugin-dependencies
 **/build/
+**/build_stale_*/
 **/.pub-cache/
 **/.pub/
 *.iml
+**/__pycache__/
 
 # IDE
 .vscode/

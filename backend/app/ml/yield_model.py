@@ -9,6 +9,7 @@ import json
 from functools import lru_cache
 
 import lightgbm as lgb
+import numpy as np
 import pandas as pd
 
 from app.core.config import get_settings
@@ -21,6 +22,13 @@ class YieldModel:
         self.q90 = q90
         self.columns: list[str] = spec["columns"]
         self.categories: dict[str, list[str]] = spec["categories"]
+        # scripts/train_model.py fits on log1p(yield_t_ha) so sugarcane's
+        # 100+ t/ha scale can't drown out the sub-5 t/ha crops (see its
+        # LGBM_PARAMS comment) — raw booster output must be expm1'd back.
+        self.log_target: bool = spec.get("target_transform") == "log1p"
+
+    def _inverse_transform(self, value: float) -> float:
+        return float(np.expm1(value)) if self.log_target else value
 
     def to_frame(self, row: dict) -> pd.DataFrame:
         ordered = {col: row.get(col) for col in self.columns}
@@ -38,9 +46,9 @@ class YieldModel:
 
     def predict_row(self, row: dict) -> tuple[float, float, float]:
         df = self.to_frame(row)
-        yield_t_ha = float(self.booster.predict(df)[0])
-        p10 = float(self.q10.predict(df)[0])
-        p90 = float(self.q90.predict(df)[0])
+        yield_t_ha = self._inverse_transform(self.booster.predict(df)[0])
+        p10 = self._inverse_transform(self.q10.predict(df)[0])
+        p90 = self._inverse_transform(self.q90.predict(df)[0])
         lo, hi = sorted((p10, p90))  # guard quantile crossing at small demo-scale n
         return round(max(0.0, yield_t_ha), 3), round(max(0.0, lo), 3), round(max(0.0, hi), 3)
 

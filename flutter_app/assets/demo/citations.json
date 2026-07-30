@@ -1,0 +1,40 @@
+{
+  "field": "Kallapuram demo field",
+  "sources": [
+    {
+      "id": "boundary",
+      "label": "Field boundary",
+      "citation": "Kallapuram_Actual.geojson (EPSG:32643 \u2192 WGS84)"
+    },
+    {
+      "id": "orthomosaic",
+      "label": "Drone orthomosaic",
+      "citation": "Orthomosaic.tif \u2014 local drone survey, downsampled offline map overlay"
+    },
+    {
+      "id": "dem",
+      "label": "Digital elevation model",
+      "citation": "Digital Elevation model.tif \u2014 local DEM preview"
+    },
+    {
+      "id": "soil",
+      "label": "Soil N/P/K/pH",
+      "citation": "Soil Health Card portal (https://soilhealth.dac.gov.in)"
+    },
+    {
+      "id": "weather",
+      "label": "Weather",
+      "citation": "Open-Meteo Archive (ERA5)"
+    },
+    {
+      "id": "ndvi_sat",
+      "label": "Satellite NDVI",
+      "citation": "NASA ORNL DAAC MODIS / Sentinel-2 (GEE)"
+    },
+    {
+      "id": "yield",
+      "label": "Yield training",
+      "citation": "DES / MoA APY reports (https://data.desagri.gov.in)"
+    }
+  ]
+}

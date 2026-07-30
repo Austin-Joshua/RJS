@@ -1,0 +1,13 @@
+.git
+.cursor
+flutter_app
+*.md
+*.log
+Boundary.geojson
+backend/.env
+backend/data/*.db
+backend/__pycache__
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/build_stale_*

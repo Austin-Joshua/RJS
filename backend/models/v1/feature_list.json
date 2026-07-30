@@ -39,10 +39,12 @@
       "Madurai"
     ],
     "season": [
+      "whole_year",
       "kharif",
       "rabi",
-      "samba",
-      "kuruvai"
+      "kuruvai",
+      "samba"
     ]
-  }
+  },
+  "target_transform": "log1p"
 }

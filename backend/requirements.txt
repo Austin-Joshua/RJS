@@ -29,3 +29,7 @@ Pillow==12.3.0
 # The ndvi_gee adapter degrades gracefully (data_mode="degraded") if this is
 # not installed or no service account is configured.
 earthengine-api==1.6.9
+
+# Build-time only: parses the real DES APY report tables (scripts/parse_apy_reports.py).
+# Not imported by the running API.
+lxml==6.1.1

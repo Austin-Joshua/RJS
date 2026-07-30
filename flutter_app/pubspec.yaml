@@ -35,6 +35,18 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   clerk_flutter: ^0.0.18-beta
+  flutter_riverpod: ^3.4.2
+
+  # Offline-first local persistence (TRD architecture) — caches the latest
+  # QAOA advisory/crop plan so the app works with no backend connection.
+  drift: ^2.34.3
+  drift_flutter: ^0.3.1
+  path_provider: ^2.1.6
+  flutter_tts: ^4.2.5
+  fl_chart: ^1.2.0
+  flutter_map: ^8.3.1
+  latlong2: ^0.10.1
+  dio: ^5.11.0
 
 dev_dependencies:
   flutter_test:
@@ -46,6 +58,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  drift_dev: ^2.34.0
+  build_runner: ^2.15.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -58,10 +72,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/demo/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

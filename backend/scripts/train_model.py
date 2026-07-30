@@ -21,18 +21,25 @@ from app.core.config import get_settings
 from app.ml.features import CATEGORICAL_FEATURES, FEATURE_COLUMNS, TEMPORAL_EXCLUDED_CATEGORICAL, build_feature_row
 from scripts.build_training_set import CROPS, DISTRICTS, SEASONS, OUT_PATH as TRAINING_CSV
 
+# Tuned for the real (small, n~600) training set — the previous
+# n_estimators=1200/min_child_samples=40 pair was sized for the old
+# 4200-row synthetic panel and overfit badly here (negative lift over the
+# district-crop-mean baseline). Target is log1p(yield_t_ha) (see
+# `_load_dataset`/expm1 below): sugarcane's 100+ t/ha scale otherwise
+# dominates the L1 loss and drowns out the sub-5 t/ha crops.
 LGBM_PARAMS = dict(
     objective="regression_l1",
-    n_estimators=1200,
-    learning_rate=0.03,
-    num_leaves=31,
-    min_child_samples=40,
+    n_estimators=60,
+    learning_rate=0.08,
+    num_leaves=15,
+    min_child_samples=20,
     subsample=0.8,
     colsample_bytree=0.8,
     reg_lambda=1.0,
     random_state=42,
     verbosity=-1,
 )
+TARGET_TRANSFORM = "log1p"
 CATEGORIES = {"crop": CROPS, "district": DISTRICTS, "season": SEASONS}
 
 
@@ -79,12 +86,15 @@ def _fit_lgbm(x_train: pd.DataFrame, y_train: pd.Series, **overrides) -> lgb.LGB
     return model
 
 
-def _eval(model, x_test: pd.DataFrame, y_test: pd.Series) -> dict:
-    pred = model.predict(x_test)
+def _eval(model, x_test: pd.DataFrame, y_test_real: pd.Series) -> dict:
+    """y_test_real is always real t/ha — the model was fit on log1p(y)
+    (TARGET_TRANSFORM), so its raw prediction is expm1'd back before scoring,
+    keeping every reported metric in the same real units as the baselines."""
+    pred = np.expm1(model.predict(x_test))
     return {
-        "r2": round(float(r2_score(y_test, pred)), 4),
-        "rmse": round(float(np.sqrt(mean_squared_error(y_test, pred))), 4),
-        "mae": round(float(mean_absolute_error(y_test, pred)), 4),
+        "r2": round(float(r2_score(y_test_real, pred)), 4),
+        "rmse": round(float(np.sqrt(mean_squared_error(y_test_real, pred))), 4),
+        "mae": round(float(mean_absolute_error(y_test_real, pred)), 4),
     }
 
 
@@ -137,17 +147,18 @@ def main() -> None:
     df = _load_dataset()
     x_full = _apply_categories(df[FEATURE_COLUMNS], CATEGORICAL_FEATURES)
     y = df["yield_t_ha"]
+    y_log = np.log1p(y)  # see TARGET_TRANSFORM note on LGBM_PARAMS
 
     # --- P1: random split ---------------------------------------------------
-    x_train, x_test, y_train, y_test = train_test_split(x_full, y, test_size=0.2, random_state=42)
+    x_train, x_test, y_train, y_test = train_test_split(x_full, y_log, test_size=0.2, random_state=42)
     p1_model = _fit_lgbm(x_train, y_train)
-    p1 = _eval(p1_model, x_test, y_test)
+    p1 = _eval(p1_model, x_test, np.expm1(y_test))
 
     # --- P2: grouped CV by district ------------------------------------------
     gkf = GroupKFold(n_splits=5)
     p2_folds = []
-    for train_idx, test_idx in gkf.split(x_full, y, groups=df["district"]):
-        fold_model = _fit_lgbm(x_full.iloc[train_idx], y.iloc[train_idx], n_estimators=400)
+    for train_idx, test_idx in gkf.split(x_full, y_log, groups=df["district"]):
+        fold_model = _fit_lgbm(x_full.iloc[train_idx], y_log.iloc[train_idx])
         p2_folds.append(_eval(fold_model, x_full.iloc[test_idx], y.iloc[test_idx]))
     p2 = {k: round(float(np.mean([f[k] for f in p2_folds])), 4) for k in ("r2", "rmse", "mae")}
 
@@ -157,14 +168,10 @@ def main() -> None:
     x_temporal_cols_with_district = FEATURE_COLUMNS
     x_temporal_cols_no_district = [c for c in FEATURE_COLUMNS if c not in TEMPORAL_EXCLUDED_CATEGORICAL]
 
-    p3_with_district = _fit_lgbm(
-        x_full.loc[train_mask, x_temporal_cols_with_district], y[train_mask], n_estimators=600
-    )
+    p3_with_district = _fit_lgbm(x_full.loc[train_mask, x_temporal_cols_with_district], y_log[train_mask])
     p3_with_metrics = _eval(p3_with_district, x_full.loc[test_mask, x_temporal_cols_with_district], y[test_mask])
 
-    p3_no_district = _fit_lgbm(
-        x_full.loc[train_mask, x_temporal_cols_no_district], y[train_mask], n_estimators=600
-    )
+    p3_no_district = _fit_lgbm(x_full.loc[train_mask, x_temporal_cols_no_district], y_log[train_mask])
     p3_no_metrics = _eval(p3_no_district, x_full.loc[test_mask, x_temporal_cols_no_district], y[test_mask])
 
     baselines = _baseline_metrics(df[train_mask], df[test_mask])
@@ -174,16 +181,16 @@ def main() -> None:
     )
 
     # --- Final shipped model: full data, full feature set --------------------
-    final_model = _fit_lgbm(x_full, y)
+    final_model = _fit_lgbm(x_full, y_log)
     final_model.booster_.save_model(str(settings.model_dir / "yield_lgbm.txt"))
 
-    q10 = _fit_lgbm(x_full, y, objective="quantile", alpha=0.10)
-    q90 = _fit_lgbm(x_full, y, objective="quantile", alpha=0.90)
+    q10 = _fit_lgbm(x_full, y_log, objective="quantile", alpha=0.10)
+    q90 = _fit_lgbm(x_full, y_log, objective="quantile", alpha=0.90)
     q10.booster_.save_model(str(settings.model_dir / "yield_q10.txt"))
     q90.booster_.save_model(str(settings.model_dir / "yield_q90.txt"))
 
     with open(settings.model_dir / "feature_list.json", "w", encoding="utf-8") as f:
-        json.dump({"columns": FEATURE_COLUMNS, "categories": CATEGORIES}, f, indent=2)
+        json.dump({"columns": FEATURE_COLUMNS, "categories": CATEGORIES, "target_transform": TARGET_TRANSFORM}, f, indent=2)
 
     # --- Global SHAP (FR-32, analytics feature importance) -------------------
     sample = x_full.sample(min(500, len(x_full)), random_state=42)
@@ -209,12 +216,16 @@ def main() -> None:
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "git_sha": _git_sha(),
         "row_count": len(df),
-        "training_data_source": "synthetic_placeholder",
+        "training_data_source": "real_govt_district_apy",
         "training_data_note": (
-            "Generated by scripts/build_training_set.py — a structured synthetic panel standing in for the "
-            "ICRISAT District Level Database (TRD SS5.1), which this environment cannot fetch at build time. "
-            "Swap in the real ICRISAT CSV + Open-Meteo backfill without touching features.py or this script's "
-            "evaluation logic."
+            "Generated by scripts/build_training_set.py from real government data: district-crop-year "
+            "Area/Production/Yield statistics from the Directorate of Economics & Statistics (DES), Ministry "
+            "of Agriculture & Farmers Welfare (data.desagri.gov.in), joined with real Open-Meteo Archive "
+            "(ERA5) weather and real NASA ORNL DAAC MODIS NDVI over each row's 1 Jul-30 Jun crop year. Soil "
+            "N/P/K is the real Soil Health Card baseline applied per-district across years (no free bulk "
+            "historical SHC series exists); area_ha is sampled from TN's real average smallholding band "
+            "(Agriculture Census) since per-farm area isn't published at district grain. See "
+            "scripts/build_training_set.py's module docstring for the full source-by-source breakdown."
         ),
         "protocols": {
             "p1_random_split": p1,
