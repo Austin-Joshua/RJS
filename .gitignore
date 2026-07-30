@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+backend/secrets/
+*.pem
+*serviceaccount*.json
+*service-account*.json
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Training data / generated artifacts (regenerate via scripts/*.py)
+backend/data/training/
+backend/tests/_test.db
+
+# Flutter / Dart
+**/.dart_tool/
+**/.flutter-plugin-dependencies
+**/build/
+**/.pub-cache/
+**/.pub/
+*.iml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large raster files (exceed GitHub's 100MB file limit)
+/Orthomosaic.tif
+/Digital Elevation model.tif

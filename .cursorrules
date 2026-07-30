@@ -1,0 +1,16 @@
+# FarmSync Quantum 2.0 — Global Constraints
+
+## Tech Stack
+Flutter (Riverpod, Drift, MapLibre) · FastAPI · Supabase (PostGIS/Auth) · LightGBM · PennyLane
+
+## Architecture
+Offline-first; local persistence via Drift.
+
+## UI/UX
+Earthy palette: deep greens, terracotta, soil browns.
+
+## ML
+NO CNN/CV for pests. Rule-based NDVI alerts only. QAOA for optimization only — never prediction.
+
+## AI Behavior
+Strict Python 3.10+ typing. No yapping; no explanations in outputs.

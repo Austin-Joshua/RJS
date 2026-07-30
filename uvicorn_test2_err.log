@@ -1,0 +1,28 @@
+INFO:     Started server process [13640]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8124 (Press CTRL+C to quit)
+INFO:     127.0.0.1:58824 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell%20Peripheral%20Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:58825 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell.Peripheral.Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:58851 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell%20Peripheral%20Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:58852 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell.Peripheral.Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:58854 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell%20Peripheral%20Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:58855 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell.Peripheral.Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:58858 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell%20Peripheral%20Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:58859 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell.Peripheral.Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:58862 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell%20Peripheral%20Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:58863 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell.Peripheral.Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:57313 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell%20Peripheral%20Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)
+INFO:     127.0.0.1:57314 - "WebSocket /?protocol-version=2.0.0&manufacturer=Dell%20Inc.&device=Collaboration%20Keyboard&app=Dell.Peripheral.Manager&app-version=1.0.0" 403
+INFO:     connection rejected (403 Forbidden)

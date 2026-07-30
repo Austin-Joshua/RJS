@@ -1,0 +1,45 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "district": "Thanjavur", "state": "Tamil Nadu" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[78.9, 10.5], [79.4, 10.5], [79.4, 11.2], [78.9, 11.2], [78.9, 10.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "district": "Tiruvarur", "state": "Tamil Nadu" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[79.4, 10.5], [79.9, 10.5], [79.9, 10.9], [79.4, 10.9], [79.4, 10.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "district": "Nagapattinam", "state": "Tamil Nadu" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[79.5, 10.3], [80.0, 10.3], [80.0, 11.2], [79.5, 11.2], [79.5, 10.3]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "district": "Tiruchirappalli", "state": "Tamil Nadu" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[78.4, 10.5], [78.9, 10.5], [78.9, 11.0], [78.4, 11.0], [78.4, 10.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "district": "Madurai", "state": "Tamil Nadu" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[77.8, 9.7], [78.3, 9.7], [78.3, 10.2], [77.8, 10.2], [77.8, 9.7]]]
+      }
+    }
+  ]
+}

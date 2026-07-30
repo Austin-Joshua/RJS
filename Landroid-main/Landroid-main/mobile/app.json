@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Landroid",
+    "slug": "landroid",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  }
+}

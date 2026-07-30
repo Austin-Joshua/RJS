@@ -1,0 +1,32 @@
+Analyzing flutter_app...
+
+error - Target of URI doesn't exist: 'package:maplibre_gl/maplibre_gl.dart' - lib\src\map\map_layer_placeholders.dart:4:8 - uri_does_not_exist
+info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\src\screens\dashboard_screen.dart:669:46 - use_build_context_synchronously
+info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\src\screens\dashboard_screen.dart:678:46 - use_build_context_synchronously
+error - Target of URI doesn't exist: 'package:maplibre_gl/maplibre_gl.dart' - lib\src\screens\map_screen.dart:2:8 - uri_does_not_exist
+warning - The value of the local variable 'ring' isn't used - lib\src\screens\map_screen.dart:351:15 - unused_local_variable
+warning - The value of the local variable 'parcelTileBounds' isn't used - lib\src\screens\map_screen.dart:372:15 - unused_local_variable
+error - Target of URI doesn't exist: 'package:maplibre_gl/maplibre_gl.dart' - lib\src\screens\maplibre_view.dart:5:8 - uri_does_not_exist
+error - Undefined class 'LatLngBounds' - lib\src\screens\maplibre_view.dart:35:9 - undefined_class
+error - Undefined class 'LatLng' - lib\src\screens\maplibre_view.dart:36:9 - undefined_class
+error - Undefined class 'MaplibreMapController' - lib\src\screens\maplibre_view.dart:43:3 - undefined_class
+error - The name 'LatLng' isn't a type, so it can't be used as a type argument - lib\src\screens\maplibre_view.dart:47:8 - non_type_as_type_argument
+info - The private field _measurePoints could be 'final' - lib\src\screens\maplibre_view.dart:47:16 - prefer_final_fields
+error - The method 'LineLayerProperties' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:107:11 - undefined_method
+error - The method 'LatLng' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:144:15 - undefined_method
+error - The method 'LatLng' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:145:15 - undefined_method
+error - The method 'LatLng' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:146:15 - undefined_method
+error - The method 'LatLng' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:147:15 - undefined_method
+error - The method 'RasterLayerProperties' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:153:13 - undefined_method
+error - The property 'longitude' can't be unconditionally accessed because the receiver can be 'null' - lib\src\screens\maplibre_view.dart:177:49 - unchecked_use_of_nullable_value
+error - The property 'latitude' can't be unconditionally accessed because the receiver can be 'null' - lib\src\screens\maplibre_view.dart:177:62 - unchecked_use_of_nullable_value
+error - The method 'LineLayerProperties' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:188:72 - undefined_method
+error - The method 'FillLayerProperties' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:202:72 - undefined_method
+error - The method 'LineLayerProperties' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:206:72 - undefined_method
+error - The method 'CircleLayerProperties' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:223:81 - undefined_method
+error - Undefined class 'Point' - lib\src\screens\maplibre_view.dart:231:20 - undefined_class
+error - Undefined class 'LatLng' - lib\src\screens\maplibre_view.dart:231:41 - undefined_class
+error - The method 'MaplibreMap' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:284:20 - undefined_method
+error - The method 'CameraPosition' isn't defined for the type '_MapLibreViewState' - lib\src\screens\maplibre_view.dart:285:38 - undefined_method
+error - Undefined name 'CameraUpdate' - lib\src\screens\maplibre_view.dart:297:46 - undefined_identifier
+

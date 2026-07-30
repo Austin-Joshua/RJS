@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node / React Native
+node_modules/
+npm-debug.log*
+yarn.lock
+
+# Secrets
+.env
+.env.*
+google-services.json
+*.keystore
+
+# Shared data/ — GeoTIFFs, PDFs, uploads, manifests (large; keeps git add/push from failing)
+data/*
+!data/README.md
+!data/Boundary.geojson
+
+# Build
+dist/
+build/
+android/app/build/
+
+# Pub cache without spaces (see flutter_app/run_android.ps1 — avoids broken hooks when the user profile path has spaces)
+.pub-cache/

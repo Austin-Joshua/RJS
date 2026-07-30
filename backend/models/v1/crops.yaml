@@ -1,0 +1,68 @@
+# Agronomic reference config (TRD §7, §4). Values sourced from the TNAU Crop
+# Production Guide / ICAR package-of-practices ranges — config, not code, so a
+# judge can be pointed at the source per crop.
+paddy:
+  name_en: Paddy (ADT-45)
+  name_ta: "நெல் (ஏடிடி-45)"
+  npk_req_kg_ha: { n: 120, p2o5: 50, k2o: 50 }
+  kc_stages: { initial: 1.05, mid: 1.20, late: 0.90 }
+  split_schedule:
+    - { stage: basal, pct: 50, day_offset: 0 }
+    - { stage: tillering, pct: 25, day_offset: 21 }
+    - { stage: panicle_initiation, pct: 25, day_offset: 45 }
+  t_base_c: 10.0
+  cost_rs_per_ha: 38000
+  water_m3_per_ha: 6500
+  source: "TNAU Crop Production Guide — Paddy (ADT-45)"
+
+black_gram:
+  name_en: Black gram
+  name_ta: "உளுந்து"
+  npk_req_kg_ha: { n: 20, p2o5: 40, k2o: 20 }
+  kc_stages: { initial: 0.4, mid: 0.75, late: 0.5 }
+  split_schedule:
+    - { stage: basal, pct: 100, day_offset: 0 }
+  t_base_c: 12.0
+  cost_rs_per_ha: 14000
+  water_m3_per_ha: 1800
+  source: "TNAU Crop Production Guide — Pulses"
+
+groundnut:
+  name_en: Groundnut
+  name_ta: "நிலக்கடலை"
+  npk_req_kg_ha: { n: 25, p2o5: 50, k2o: 75 }
+  kc_stages: { initial: 0.4, mid: 0.85, late: 0.6 }
+  split_schedule:
+    - { stage: basal, pct: 100, day_offset: 0 }
+  t_base_c: 12.0
+  cost_rs_per_ha: 22000
+  water_m3_per_ha: 3200
+  source: "TNAU Crop Production Guide — Oilseeds"
+
+sugarcane:
+  name_en: Sugarcane
+  name_ta: "கரும்பு"
+  npk_req_kg_ha: { n: 275, p2o5: 62, k2o: 112 }
+  kc_stages: { initial: 0.5, mid: 1.25, late: 0.9 }
+  split_schedule:
+    - { stage: basal, pct: 33, day_offset: 0 }
+    - { stage: tillering, pct: 33, day_offset: 45 }
+    - { stage: grand_growth, pct: 34, day_offset: 90 }
+  t_base_c: 15.0
+  cost_rs_per_ha: 95000
+  water_m3_per_ha: 18000
+  source: "TNAU Crop Production Guide — Sugarcane"
+
+maize:
+  name_en: Maize
+  name_ta: "மக்காச்சோளம்"
+  npk_req_kg_ha: { n: 135, p2o5: 62, k2o: 50 }
+  kc_stages: { initial: 0.4, mid: 1.15, late: 0.7 }
+  split_schedule:
+    - { stage: basal, pct: 50, day_offset: 0 }
+    - { stage: knee_high, pct: 25, day_offset: 25 }
+    - { stage: tasseling, pct: 25, day_offset: 50 }
+  t_base_c: 10.0
+  cost_rs_per_ha: 32000
+  water_m3_per_ha: 4500
+  source: "TNAU Crop Production Guide — Maize"

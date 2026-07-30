@@ -1,0 +1,35 @@
+name: landroid_flutter
+description: "Flutter frontend for Landroid."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  google_sign_in: ^6.3.0
+  http: ^1.5.0
+  supabase_flutter: ^2.8.0
+  shared_preferences: ^2.5.3
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  crypto: ^3.0.6
+  maplibre_gl: ^0.25.0
+  latlong2: ^0.9.1
+  maps_toolkit: ^3.1.0
+  fl_chart: ^0.69.0
+  file_picker: ^8.1.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

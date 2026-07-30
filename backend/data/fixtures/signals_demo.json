@@ -1,0 +1,43 @@
+{
+  "soil": {
+    "n_kg_ha": 265,
+    "p_kg_ha": 18,
+    "k_kg_ha": 310,
+    "ph": 6.4,
+    "oc_pct": 0.62,
+    "ec_ds_m": 0.42,
+    "n_class": "Low",
+    "p_class": "Medium",
+    "k_class": "High",
+    "source": "district_shc",
+    "source_url": "https://soilhealth.dac.gov.in",
+    "year": "2022"
+  },
+  "weather": {
+    "source": "open_meteo",
+    "rainfall_cum_mm": 412.6,
+    "rainfall_last30_mm": 88.2,
+    "dry_spell_max_days": 9,
+    "temp_mean_c": 29.1,
+    "temp_max_c": 34.8,
+    "humidity_mean_pct": 78.4,
+    "et0_cum_mm": 320.5,
+    "gdd": 1710.0,
+    "daily_temp_mean_c": null,
+    "forecast_7d_rainfall_mm": 41.0
+  },
+  "ndvi": {
+    "ndvi_mean": 0.612,
+    "ndvi_max": 0.74,
+    "ndvi_p90": 0.71,
+    "ndvi_slope_30d": 0.0021,
+    "ndvi_auc": 18.4,
+    "scene_count": 7,
+    "source": "sentinel2_gee"
+  },
+  "provenance": {
+    "soil": { "source": "district_shc", "fetched_at": "2026-06-01T00:00:00+00:00" },
+    "weather": { "source": "open_meteo_demo_fixture", "fetched_at": "2026-07-29T00:00:00+00:00" },
+    "ndvi": { "source": "sentinel2_gee_demo_fixture", "fetched_at": "2026-07-29T00:00:00+00:00", "scene_count": 7 }
+  }
+}

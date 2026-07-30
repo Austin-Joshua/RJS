@@ -1,0 +1,6 @@
+state,district,n_kg_ha,p_kg_ha,k_kg_ha,ph,oc_pct,ec_ds_m,year,source_url
+Tamil Nadu,Thanjavur,265,18,310,6.4,0.62,0.42,2022,https://soilhealth.dac.gov.in
+Tamil Nadu,Tiruvarur,240,14,265,6.7,0.58,0.48,2022,https://soilhealth.dac.gov.in
+Tamil Nadu,Nagapattinam,255,12,290,7.1,0.55,0.61,2022,https://soilhealth.dac.gov.in
+Tamil Nadu,Tiruchirappalli,310,22,240,7.4,0.51,0.38,2022,https://soilhealth.dac.gov.in
+Tamil Nadu,Madurai,300,26,200,7.6,0.48,0.35,2022,https://soilhealth.dac.gov.in

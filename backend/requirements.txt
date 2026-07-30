@@ -1,0 +1,31 @@
+fastapi==0.141.1
+uvicorn[standard]==0.52.0
+pydantic==2.13.4
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+sqlalchemy==2.0.51
+psycopg2-binary==2.9.12
+shapely==2.1.2
+httpx==0.28.1
+cachetools==7.1.6
+lightgbm==4.7.0
+scikit-learn==1.9.0
+pandas==3.0.5
+numpy==2.4.6
+pennylane==0.45.1
+scipy==1.18.0
+networkx==3.6.1
+shap==0.52.0
+pyjwt==2.13.0
+pyyaml==6.0.3
+clerk-backend-api==6.0.1
+python-multipart==0.0.32
+
+# Uploaded raster GeoTIFFs (drone/orthomosaic NDVI) — zonal stats + PNG layers.
+rasterio==1.5.0
+Pillow==12.3.0
+
+# Optional: enables live Sentinel-2 NDVI via Google Earth Engine (TRD §3.3).
+# The ndvi_gee adapter degrades gracefully (data_mode="degraded") if this is
+# not installed or no service account is configured.
+earthengine-api==1.6.9

@@ -1,0 +1,4 @@
+# Straight-fertilizer grade content + retail bag mass (TRD §7.1).
+urea: { n_pct: 46, bag_kg: 45 }
+dap: { n_pct: 18, p2o5_pct: 46, bag_kg: 50 }
+mop: { k2o_pct: 60, bag_kg: 50 }
