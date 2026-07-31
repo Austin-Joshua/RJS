@@ -108,8 +108,11 @@ class _QuantumLabScreenState extends ConsumerState<QuantumLabScreen> {
       });
     } catch (e) {
       if (!mounted || token != _runToken) return;
+      final msg = '$e';
       setState(() {
-        _error = '$e';
+        _error = msg.contains('404') || msg.contains('scenario')
+            ? '$msg — if sliders never change the plan, redeploy the backend.'
+            : msg;
         _running = false;
       });
     }
@@ -249,16 +252,38 @@ class _QuantumLabScreenState extends ConsumerState<QuantumLabScreen> {
             ],
             if (_result != null) ...[
               const SizedBox(height: 16),
-              _ShiftBanner(baseline: _baselineResult, current: _result!),
+              _ScenarioBar(result: _result!, waterM3: _waterM3, budgetRs: _budgetRs),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ShiftBanner(baseline: _baselineResult, current: _result!),
+                  ),
+                  TextButton(
+                    onPressed: _result == null ? null : () => setState(() => _baselineResult = _result),
+                    child: const Text('Reset baseline'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 12),
-              _FeasibleStrip(feasibility: _result!.feasibility),
+              _FeasibleStrip(result: _result!),
+              if (_result!.pipeline?.excludedCrops.isNotEmpty == true) ...[
+                const SizedBox(height: 8),
+                _ExcludedReasons(excluded: _result!.pipeline!.excludedCrops),
+              ],
               if (_result!.error != null) ...[
                 const SizedBox(height: 12),
                 Text(_result!.error!, style: textTheme.bodyMedium?.copyWith(color: AppColors.terracotta)),
               ],
               if (_result!.ranking != null) ...[
                 const SizedBox(height: 16),
-                PlanTimeline(ranking: _result!.ranking!),
+                PlanTimeline(
+                  key: ValueKey(
+                    '${_result!.ranking!.sequence.join('-')}-'
+                    '${_result!.feasibility.rotationCandidates.join('-')}',
+                  ),
+                  ranking: _result!.ranking!,
+                ),
                 const SizedBox(height: 16),
                 _ComparisonBoard(result: _result!),
                 if (_result!.quantum != null) ...[
@@ -365,6 +390,64 @@ class _BudgetSliderCard extends StatelessWidget {
   }
 }
 
+class _ScenarioBar extends StatelessWidget {
+  const _ScenarioBar({required this.result, required this.waterM3, required this.budgetRs});
+
+  final RankResultOut result;
+  final double waterM3;
+  final double budgetRs;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final scenario = result.scenario;
+    final band = result.pipeline?.waterCategory ?? '—';
+    final water = scenario?.waterAvailableM3 ?? waterM3;
+    return GlassPanel(
+      child: Row(
+        children: [
+          const Icon(Icons.tune, size: 18, color: AppColors.deepGreen),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Active scenario · ${water.round()} m³ ($band) · ${formatRs(scenario?.budgetRs ?? budgetRs)}',
+              style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExcludedReasons extends StatelessWidget {
+  const _ExcludedReasons({required this.excluded});
+
+  final List<ExcludedCropOut> excluded;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Why crops dropped', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          for (final e in excluded.take(4))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '${cropLabel(e.crop)}: ${e.reason}',
+                style: textTheme.bodySmall?.copyWith(color: AppColors.terracotta),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ShiftBanner extends StatelessWidget {
   const _ShiftBanner({required this.baseline, required this.current});
 
@@ -432,15 +515,17 @@ class _ShiftBanner extends StatelessWidget {
 }
 
 class _FeasibleStrip extends StatelessWidget {
-  const _FeasibleStrip({required this.feasibility});
+  const _FeasibleStrip({required this.result});
 
-  final FeasibilityOut feasibility;
+  final RankResultOut result;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final ok = feasibility.feasible.map((v) => v.crop).toList();
-    final out = feasibility.excluded.map((v) => v.crop).toList();
+    final feasibility = result.feasibility;
+    final ok = result.pipeline?.rotationCandidates ?? feasibility.rotationCandidates;
+    final out = result.pipeline?.excludedCrops.map((e) => e.crop).toList() ??
+        feasibility.excluded.map((v) => v.crop).toList();
 
     return GlassPanel(
       child: Column(

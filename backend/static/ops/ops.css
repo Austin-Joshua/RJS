@@ -1,0 +1,153 @@
+:root {
+  --green: #2d5a3d;
+  --terracotta: #c45c3e;
+  --clay: #8b7355;
+  --cream: #f7f3eb;
+  --soil: #3d2f24;
+  --panel: rgba(255, 255, 255, 0.72);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: linear-gradient(135deg, #e8f0e4, var(--cream), #f3e6d8);
+  color: var(--soil);
+  min-height: 100vh;
+}
+
+.hero {
+  padding: 1.5rem 2rem;
+  background: linear-gradient(90deg, var(--green), #4a7c59);
+  color: #fff;
+}
+
+.hero h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
+.hero p { margin: 0; opacity: 0.9; font-size: 0.95rem; }
+
+.grid {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 1.25rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .log { grid-column: 1 / -1; }
+}
+
+.panel {
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 8px 24px rgba(61, 47, 36, 0.08);
+}
+
+.panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  color: var(--green);
+}
+
+.pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.step {
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(45, 90, 61, 0.08);
+  border: 1px solid rgba(45, 90, 61, 0.2);
+  font-size: 0.78rem;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.step.active {
+  background: var(--green);
+  color: #fff;
+  transform: scale(1.04);
+}
+
+.arrow { color: var(--clay); font-size: 0.85rem; }
+
+.metric-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 700px) {
+  .metric-row { grid-template-columns: repeat(3, 1fr); }
+}
+
+.metric-card {
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.metric-card h3 { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.metric-card dl { margin: 0; }
+.metric-card dt { font-weight: 600; margin-top: 0.35rem; }
+.metric-card dd { margin: 0.1rem 0 0; color: var(--clay); }
+
+.classical { background: rgba(45, 90, 61, 0.1); }
+.sparq { background: rgba(45, 90, 61, 0.18); border: 1px solid rgba(45, 90, 61, 0.35); }
+.legacy { background: rgba(196, 92, 62, 0.1); }
+
+.demo label {
+  display: block;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.demo input[type="range"] { width: 100%; accent-color: var(--green); }
+
+#run-demo {
+  margin-top: 0.5rem;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#run-demo:disabled { opacity: 0.6; cursor: wait; }
+
+.demo-result {
+  margin-top: 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  min-height: 2.5rem;
+}
+
+.hint { font-size: 0.82rem; color: var(--clay); margin: 0 0 0.5rem; }
+
+#log {
+  margin: 0;
+  height: 280px;
+  overflow-y: auto;
+  background: #1a1f1c;
+  color: #c8e6c9;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-line { margin-bottom: 0.35rem; }
+.log-line .ts { color: #81c784; }
+.log-line .stage { color: #ffcc80; font-weight: 600; }

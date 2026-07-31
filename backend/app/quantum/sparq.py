@@ -302,6 +302,7 @@ def solve_sparq(
     feasibility_fn: Callable[[QUBOProblem, list[int]], bool] | None = None,
     value_fn: Callable[[QUBOProblem, list[int]], float] | None = None,
     label_fn: Callable[[QUBOProblem, list[int]], object] | None = None,
+    on_progress: Callable[[str, dict], None] | None = None,
 ) -> SparqResult:
     """Run SPARQ and return the best feasible plan it sampled.
 
@@ -360,6 +361,8 @@ def solve_sparq(
     best_params = params.copy()
 
     for depth in range(1, layers + 1):
+        if on_progress:
+            on_progress("sparq_layer", {"message": f"Training layer {depth}/{layers}", "layer": depth, "layers": layers})
         if depth > 1:
             params = _interp(best_params)
         train_qnode = build_qnode(depth, TRAIN_SHOTS)
@@ -380,6 +383,16 @@ def solve_sparq(
             value = float(np.mean(energies[:k]))
             _it[0] += 1
             convergence.append({"layer": _depth, "iteration": _it[0], "cvar_energy": round(value, 6)})
+            if on_progress and _it[0] % 15 == 0:
+                on_progress(
+                    "sparq_cvar",
+                    {
+                        "message": f"Layer {_depth} CVaR energy {value:.4f}",
+                        "layer": _depth,
+                        "iteration": _it[0],
+                        "cvar_energy": round(value, 6),
+                    },
+                )
             if value < _stage["value"]:
                 # Track the best schedule seen so far, so a timeout mid-search
                 # still leaves us with a usable circuit instead of nothing.

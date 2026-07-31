@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FarmSync Quantum Ops</title>
+  <link rel="stylesheet" href="ops.css" />
+</head>
+<body>
+  <header class="hero">
+    <h1>FarmSync Quantum Ops</h1>
+    <p>Live pipeline: classical yield → feasibility gates → rotation QUBO → SPARQ</p>
+  </header>
+
+  <main class="grid">
+    <section class="panel arch" id="arch-panel">
+      <h2>Architecture</h2>
+      <div class="pipeline" id="pipeline">
+        <div class="step" data-stage="rank_start">Soil + scenario</div>
+        <div class="arrow">→</div>
+        <div class="step" data-stage="gates_done">Feasibility gates</div>
+        <div class="arrow">→</div>
+        <div class="step" data-stage="yield_done">LightGBM yield</div>
+        <div class="arrow">→</div>
+        <div class="step" data-stage="sparq_start">Rotation QUBO</div>
+        <div class="arrow">→</div>
+        <div class="step" data-stage="sparq_layer">SPARQ / QAOA</div>
+        <div class="arrow">→</div>
+        <div class="step" data-stage="rank_complete">Plan</div>
+      </div>
+    </section>
+
+    <section class="panel metrics">
+      <h2>Performance metrics</h2>
+      <div class="metric-row">
+        <div class="metric-card classical">
+          <h3>LightGBM (yield)</h3>
+          <dl id="yield-metrics"></dl>
+        </div>
+        <div class="metric-card sparq">
+          <h3>SPARQ</h3>
+          <dl id="sparq-metrics"></dl>
+        </div>
+        <div class="metric-card legacy">
+          <h3>Legacy QAOA</h3>
+          <dl id="legacy-metrics"></dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel demo">
+      <h2>Live demo (survival sliders)</h2>
+      <p class="hint">Cut water → paddy drops out; SPARQ re-sequences what remains.</p>
+      <label>Water (m³) <span id="water-val"></span>
+        <input type="range" id="water-slider" min="500" max="12000" step="250" value="11000" />
+      </label>
+      <label>Budget (₹) <span id="budget-val"></span>
+        <input type="range" id="budget-slider" min="10000" max="120000" step="2000" value="100000" />
+      </label>
+      <button id="run-demo" type="button">Run demo rank</button>
+      <div id="demo-result" class="demo-result"></div>
+    </section>
+
+    <section class="panel log">
+      <h2>Live computation log</h2>
+      <pre id="log" aria-live="polite"></pre>
+    </section>
+  </main>
+
+  <script src="ops.js"></script>
+</body>
+</html>

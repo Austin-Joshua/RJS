@@ -450,6 +450,8 @@ class RankResultOut {
     this.advisory,
     this.error,
     this.note,
+    this.scenario,
+    this.pipeline,
     required this.dataMode,
     required this.timings,
   });
@@ -466,6 +468,8 @@ class RankResultOut {
   /// Set when the pipeline took a shortcut worth telling the farmer about —
   /// e.g. only one crop passed the gates, so no circuit was run.
   final String? note;
+  final ScenarioOut? scenario;
+  final PipelineOut? pipeline;
   final String dataMode;
   final Map<String, dynamic> timings;
 
@@ -485,10 +489,70 @@ class RankResultOut {
       advisory: j['advisory'] == null ? null : Map<String, dynamic>.from(j['advisory'] as Map),
       error: j['error'] as String?,
       note: j['note'] as String?,
+      scenario: j['scenario'] == null ? null : ScenarioOut.fromJson(j['scenario'] as Map<String, dynamic>),
+      pipeline: j['pipeline'] == null ? null : PipelineOut.fromJson(j['pipeline'] as Map<String, dynamic>),
       dataMode: j['data_mode'] as String? ?? 'degraded',
       timings: Map<String, dynamic>.from(j['timings'] as Map? ?? const {}),
     );
   }
+}
+
+class ScenarioOut {
+  const ScenarioOut({
+    this.waterAvailableM3,
+    this.budgetRs,
+    required this.persisted,
+  });
+
+  final double? waterAvailableM3;
+  final double? budgetRs;
+  final bool persisted;
+
+  factory ScenarioOut.fromJson(Map<String, dynamic> j) => ScenarioOut(
+        waterAvailableM3: (j['water_available_m3'] as num?)?.toDouble(),
+        budgetRs: (j['budget_rs'] as num?)?.toDouble(),
+        persisted: j['persisted'] as bool? ?? true,
+      );
+}
+
+class PipelineOut {
+  const PipelineOut({
+    required this.rotationCandidates,
+    required this.excludedCrops,
+    this.waterCategory,
+    this.sequence,
+  });
+
+  final List<String> rotationCandidates;
+  final List<ExcludedCropOut> excludedCrops;
+  final String? waterCategory;
+  final List<String>? sequence;
+
+  factory PipelineOut.fromJson(Map<String, dynamic> j) => PipelineOut(
+        rotationCandidates: [
+          for (final c in (j['rotation_candidates'] as List<dynamic>? ?? const [])) c as String,
+        ],
+        excludedCrops: [
+          for (final e in (j['excluded_crops'] as List<dynamic>? ?? const []))
+            ExcludedCropOut.fromJson(e as Map<String, dynamic>),
+        ],
+        waterCategory: j['water_category'] as String?,
+        sequence: j['sequence'] == null
+            ? null
+            : [for (final s in (j['sequence'] as List<dynamic>)) s as String],
+      );
+}
+
+class ExcludedCropOut {
+  const ExcludedCropOut({required this.crop, required this.reason});
+
+  final String crop;
+  final String reason;
+
+  factory ExcludedCropOut.fromJson(Map<String, dynamic> j) => ExcludedCropOut(
+        crop: j['crop'] as String,
+        reason: j['reason'] as String? ?? '',
+      );
 }
 
 class DashboardFarmRow {

@@ -7,7 +7,7 @@ not part of the farmer's path through the app.
 """
 from fastapi import APIRouter
 
-from app.api.v1 import analytics, dashboard, farms, fields, health, plan, predict, rasters, signals
+from app.api.v1 import analytics, dashboard, farms, fields, health, ops, plan, predict, rasters, signals
 
 router = APIRouter()
 router.include_router(health.router)
@@ -19,3 +19,4 @@ router.include_router(rasters.router)
 router.include_router(predict.router)
 router.include_router(plan.router)
 router.include_router(analytics.router)
+router.include_router(ops.router)

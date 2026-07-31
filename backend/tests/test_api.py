@@ -387,9 +387,39 @@ def test_water_scenario_reranks_without_persist(client: TestClient, identity) ->
     dry_crops = set(dry["feasibility"]["rotation_candidates"])
     assert "paddy" not in dry_crops
     assert dry_crops  # something drought-tolerant remains
+    assert "pipeline" in wet and "rotation_candidates" in wet["pipeline"]
+    assert "pipeline" in dry
+  if wet.get("ranking") and dry.get("ranking"):
+      assert wet["ranking"]["sequence"] != dry["ranking"]["sequence"]
     assert client.get(f"/api/v1/farms/{farm_id}/rotation-plan").status_code == 404
 
     client.delete(f"/api/v1/farms/{farm_id}")
+
+
+def test_budget_scenario_excludes_expensive_crop(client: TestClient, identity) -> None:
+    if get_yield_model() is None:
+        pytest.skip("Model not trained")
+
+    identity.as_user("budget-user")
+    farm = _make_farm(client, "Budget farm", soil={**GOOD_SOIL, "water_available_m3": 12000.0})
+    farm_id = farm["farm"]["id"]
+
+    body = client.post(
+        f"/api/v1/farms/{farm_id}/rank",
+        json={"budget_rs": 15000.0, "persist": False},
+    ).json()
+    excluded = {e["crop"] for e in body["pipeline"]["excluded_crops"]}
+    assert "paddy" in excluded or "sugarcane" in excluded
+
+    client.delete(f"/api/v1/farms/{farm_id}")
+
+
+def test_ops_summary_public(client: TestClient) -> None:
+    resp = client.get("/api/v1/ops/summary")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "yield" in data and "quantum" in data
+    assert "events" in data
 
 
 def test_ranking_is_reproducible(client: TestClient, identity) -> None:

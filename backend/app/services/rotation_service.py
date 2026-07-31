@@ -37,6 +37,7 @@ from app.quantum.sparq import solve_sparq
 from app.services.crop_feasibility import shortlist
 from app.services.advisory import build_advisory
 from app.services.crop_reference import load_crops, load_rotation, rotation_cfg
+from app.services.soil_card import classify_water
 from app.services.yield_service import predict_yields
 
 QUANTUM_RANKING_CLAIM = (
@@ -115,13 +116,31 @@ def _apply_scenario_overrides(
     if water_available_m3 is None:
         return soil_card
     card = copy.deepcopy(soil_card)
-    water = dict(card.get("water") or {})
-    water["available_m3"] = float(water_available_m3)
-    if area_ha > 0:
-        water["per_ha_m3"] = round(float(water_available_m3) / area_ha, 1)
-    water["scenario"] = True
-    card["water"] = water
+    water_info = classify_water(float(water_available_m3), area_ha)
+    water_info["scenario"] = True
+    card["water"] = water_info
     return card
+
+
+def _pipeline_snapshot(
+    gates: dict[str, Any],
+    soil_card: dict[str, Any],
+    *,
+    sequence: list[str] | None = None,
+) -> dict[str, Any]:
+    """Explicit post-gate state for the Quantum Lab and ops dashboard."""
+    return {
+        "rotation_candidates": list(gates.get("rotation_candidates") or []),
+        "excluded_crops": [
+            {
+                "crop": v["crop"],
+                "reason": (v.get("reasons") or ["Excluded"])[0],
+            }
+            for v in gates.get("excluded") or []
+        ],
+        "water_category": (soil_card.get("water") or {}).get("category"),
+        "sequence": sequence,
+    }
 
 
 async def rank_crops_for_field(
@@ -137,6 +156,8 @@ async def rank_crops_for_field(
     """Full pipeline for one farm: feasible crops → quantum-ranked rotation."""
     import asyncio
 
+    from app.ops.journal import emit
+
     settings = get_settings()
     crops_cfg = load_crops()
     rotation_cfg_all = load_rotation()
@@ -145,6 +166,17 @@ async def rank_crops_for_field(
     area_ha = field.area_ha
     soil_card = _apply_scenario_overrides(
         soil_card, area_ha=area_ha, water_available_m3=water_available_m3
+    )
+
+    emit(
+        "rank_start",
+        f"Rank pipeline for {field.id}",
+        data={
+            "field_id": field.id,
+            "water_available_m3": water_available_m3,
+            "budget_rs": budget_rs,
+            "area_ha": area_ha,
+        },
     )
 
     # --- Step 1 (classical): agronomic feasibility gates -------------------
@@ -160,12 +192,24 @@ async def rank_crops_for_field(
     rotation_candidates = gates["rotation_candidates"]
     seasons = [s["code"] for s in rotation_cfg_all.get("season_cycle", [])]
 
+    emit(
+        "gates_done",
+        f"{len(rotation_candidates)} rotation candidates after gates",
+        data={
+            "rotation_candidates": rotation_candidates,
+            "excluded_count": len(gates.get("excluded") or []),
+            "water_category": (soil_card.get("water") or {}).get("category"),
+            "feasibility_ms": timings["feasibility_ms"],
+        },
+    )
+
     if not rotation_candidates:
         return {
             "request_id": str(uuid.uuid4()),
             "field_id": field.id,
             "feasibility": gates,
             "ranking": None,
+            "pipeline": _pipeline_snapshot(gates, soil_card),
             "error": (
                 "No crop passed the soil and water gates for this farm. The reasons are listed against "
                 "each crop above — usually pH, salinity, or not enough irrigation water for the season."
@@ -182,6 +226,12 @@ async def rank_crops_for_field(
     timings["predict_ms"] = round((time.monotonic() - t0) * 1000, 1)
     if model is None:
         raise RuntimeError("Yield model not trained yet. Run scripts/train_model.py first.")
+
+    emit(
+        "yield_done",
+        f"LightGBM yields for {len(rotation_candidates)} crops",
+        data={"crops": rotation_candidates, "predict_ms": timings["predict_ms"]},
+    )
 
     yield_by_crop = {p["crop"]: p for p in predictions}
 
@@ -204,10 +254,13 @@ async def rank_crops_for_field(
         eligible = [s for s in seasons if s in rotation_cfg(only).get("seasons", [])]
         fallow = [s for s in seasons if s not in eligible]
         per_season = base_value[only]
+        seq = [only] * len(eligible)
+        emit("rank_complete", f"Single candidate: {only}", data={"sequence": seq, "solver": "single_candidate"})
         return {
             "request_id": str(uuid.uuid4()),
             "field_id": field.id,
             "feasibility": gates,
+            "pipeline": _pipeline_snapshot(gates, soil_card, sequence=seq),
             "ranking": {
                 "solver": "single_candidate",
                 "seasons": eligible,
@@ -273,6 +326,11 @@ async def rank_crops_for_field(
     )
     problem = build_rotation_qubo(ctx)
 
+    def _sparq_progress(stage: str, payload: dict[str, Any]) -> None:
+        emit(stage, payload.get("message", stage), data=payload)
+
+    emit("sparq_start", "SPARQ rotation sequencing", data={"n_qubits": problem.n_qubits})
+
     quantum, exact, naive, myopic = await asyncio.gather(
         asyncio.to_thread(
             solve_sparq,
@@ -286,6 +344,7 @@ async def rank_crops_for_field(
             feasibility_fn=_sequence_feasible(ctx),
             value_fn=_sequence_value_only(ctx),
             label_fn=_sequence_label(ctx),
+            on_progress=_sparq_progress,
         ),
         asyncio.to_thread(brute_force_rotation, ctx),
         asyncio.to_thread(greedy_sort_rotation, ctx),
@@ -380,10 +439,23 @@ async def rank_crops_for_field(
     )
     timings["advisory_ms"] = round((time.monotonic() - t0) * 1000, 1)
 
+    emit(
+        "rank_complete",
+        f"Plan: {' → '.join(sequence)}",
+        data={
+            "sequence": sequence,
+            "solver": "sparq_rotation" if used_quantum else "classical_exact",
+            "total_value_rs": round(total_value, 2),
+            "quantum_ms": timings.get("quantum_ms"),
+            "feasible_rate": quantum.feasible_rate if used_quantum else None,
+        },
+    )
+
     return {
         "request_id": str(uuid.uuid4()),
         "field_id": field.id,
         "feasibility": gates,
+        "pipeline": _pipeline_snapshot(gates, soil_card, sequence=sequence),
         "ranking": {
             "solver": "sparq_rotation" if used_quantum else "classical_exact",
             "seasons": seasons,
