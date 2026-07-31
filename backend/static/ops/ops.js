@@ -133,12 +133,16 @@ async function runDemo() {
     const excluded = (pipe.excluded_crops || [])
       .map((e) => e.crop)
       .join(", ");
+    const curation = body.rotation_model?.curation;
+    const curationLine = curation?.system
+      ? `<br/><strong>Curation:</strong> ${curation.note || curation.system}`
+      : "";
     demoResult.innerHTML = `
       <strong>Sequence:</strong> ${seq}<br/>
       <strong>Candidates:</strong> ${candidates || "—"}<br/>
       <strong>Excluded:</strong> ${excluded || "none"}<br/>
       <strong>Water band:</strong> ${pipe.water_category || "—"} ·
-      <strong>Solver:</strong> ${ranking?.solver || "—"}
+      <strong>Solver:</strong> ${ranking?.solver || "—"}${curationLine}
     `;
   } catch (err) {
     demoResult.textContent = String(err);

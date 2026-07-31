@@ -31,6 +31,7 @@ from app.quantum.rotation import (
     greedy_myopic_rotation,
     greedy_sort_rotation,
     is_valid_sequence,
+    resolve_delta_curation,
     sequence_value,
 )
 from app.quantum.sparq import solve_sparq
@@ -238,12 +239,15 @@ async def rank_crops_for_field(
     def price_for(crop: str) -> float:
         return price_overrides.get(crop) or get_price_rs_per_quintal(crop, field.district) or 0.0
 
-    base_value = {
-        crop: _net_value_rs(
-            yield_by_crop[crop]["yield_t_ha"], area_ha, price_for(crop), crops_cfg[crop]["cost_rs_per_ha"]
-        )
-        for crop in rotation_candidates
-    }
+    curation = resolve_delta_curation(soil_card, rotation_candidates)
+    yield_floors = curation.get("yield_floors") or {}
+
+    base_value: dict[str, float] = {}
+    for crop in rotation_candidates:
+        yield_t_ha = yield_by_crop[crop]["yield_t_ha"]
+        if crop in yield_floors:
+            yield_t_ha = max(yield_t_ha, yield_floors[crop])
+        base_value[crop] = _net_value_rs(yield_t_ha, area_ha, price_for(crop), crops_cfg[crop]["cost_rs_per_ha"])
 
     # --- Single feasible crop: answer classically, run no circuit -----------
     # With one crop there is no ordering to search. Running a quantum circuit
@@ -322,7 +326,11 @@ async def rank_crops_for_field(
 
     # --- Step 3 (quantum): sequence the crops across the season cycle ------
     ctx = build_rotation_context(
-        seasons=seasons, crops=rotation_candidates, base_value_per_crop=base_value, area_ha=area_ha
+        seasons=seasons,
+        crops=rotation_candidates,
+        base_value_per_crop=base_value,
+        area_ha=area_ha,
+        anchors=curation.get("anchors") or {},
     )
     problem = build_rotation_qubo(ctx)
 
@@ -503,6 +511,7 @@ async def rank_crops_for_field(
             "yield_multiplier": ctx.yield_multiplier,
             "same_crop_consecutive_multiplier": ctx.same_crop_multiplier,
             "max_consecutive_same_crop": ctx.max_consecutive_same_crop,
+            "curation": curation,
             "n_credit_rs_per_crop": {c: round(v, 2) for c, v in ctx.n_credit_rs.items()},
             "families": ctx.families,
             "sources": rotation_cfg_all.get("sources", []),

@@ -32,6 +32,7 @@ XY-ring mixer conserves one-crop-per-season by the same symmetry argument. Only
 the objective differs, which is exactly how it should be.
 """
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.quantum.qubo import PENALTY_EPS, QUBOProblem
 from app.services.crop_reference import load_rotation, rotation_cfg
@@ -50,6 +51,7 @@ class RotationContext:
     yield_multiplier: dict[str, dict[str, float]]
     same_crop_multiplier: float
     max_consecutive_same_crop: int
+    anchors: dict[str, str] = field(default_factory=dict)
     area_ha: float
 
 
@@ -72,6 +74,7 @@ def build_rotation_context(
     crops: list[str],
     base_value_per_crop: dict[str, float],
     area_ha: float,
+    anchors: dict[str, str] | None = None,
 ) -> RotationContext:
     """Assemble the agronomic coupling tables for one farm's rotation problem.
 
@@ -98,8 +101,41 @@ def build_rotation_context(
         yield_multiplier=cfg.get("yield_multiplier", {}),
         same_crop_multiplier=cfg.get("same_crop_consecutive_multiplier", 0.82),
         max_consecutive_same_crop=int(cfg.get("max_consecutive_same_crop", 1)),
+        anchors=dict(anchors or {}),
         area_ha=area_ha,
     )
+
+
+def resolve_delta_curation(
+    soil_card: dict[str, Any],
+    rotation_candidates: list[str],
+) -> dict[str, Any]:
+    """Season anchors and yield floors for known regional cropping systems."""
+    empty: dict[str, Any] = {"system": None, "anchors": {}, "yield_floors": {}, "note": ""}
+    cfg = load_rotation().get("curated_systems", {}).get("cauvery_delta_rice_fallow", {})
+    if "paddy" not in rotation_candidates:
+        return empty
+    water_cat = (soil_card.get("water") or {}).get("category")
+    soil_type = soil_card.get("soil_type", "")
+    if water_cat not in cfg.get("water_categories", []):
+        return empty
+    if soil_type not in cfg.get("soil_types", []):
+        return empty
+
+    anchors: dict[str, str] = {}
+    for season, crop in (cfg.get("anchors") or {}).items():
+        if crop in rotation_candidates:
+            anchors[season] = crop
+    floors: dict[str, float] = {}
+    floor = cfg.get("paddy_yield_floor_t_ha")
+    if floor:
+        floors["paddy"] = float(floor)
+    return {
+        "system": "cauvery_delta_rice_fallow",
+        "anchors": anchors,
+        "yield_floors": floors,
+        "note": cfg.get("note", ""),
+    }
 
 
 def transition_multiplier(ctx: RotationContext, prev_crop: str, next_crop: str) -> float:
@@ -159,6 +195,8 @@ def is_valid_sequence(ctx: RotationContext, sequence: list[str]) -> bool:
     for t, (season, crop) in enumerate(zip(ctx.seasons, sequence)):
         if not is_season_eligible(ctx, season, crop):
             return False
+        if ctx.anchors.get(season) and crop != ctx.anchors[season]:
+            return False
         if t > 0 and crop == sequence[t - 1] and not allows_consecutive_same(ctx, sequence[t - 1], season):
             return False
     return True
@@ -215,6 +253,8 @@ def build_rotation_qubo(ctx: RotationContext, *, infeasible_penalty_scale: float
     for s in ctx.seasons:
         for c in ctx.crops:
             if not is_season_eligible(ctx, s, c):
+                add(var_index[(s, c)], var_index[(s, c)], penalty / max_v)
+            elif ctx.anchors.get(s) and c != ctx.anchors[s]:
                 add(var_index[(s, c)], var_index[(s, c)], penalty / max_v)
 
     # --- Quadratic: the whole point. Value of crop c in season t, given crop p
@@ -366,7 +406,11 @@ def explain_sequence(ctx: RotationContext, sequence: list[str]) -> list[dict]:
                     "rotation_multiplier": 1.0,
                     "n_credit_rs": 0.0,
                     "realised_value_rs": round(base, 2),
-                    "reason": "First season of the cycle — no predecessor effect.",
+                    "reason": (
+                        f"Curated {season} {crop} for the delta rice-fallow system."
+                        if ctx.anchors.get(season) == crop
+                        else "First season of the cycle — no predecessor effect."
+                    ),
                 }
             )
             continue

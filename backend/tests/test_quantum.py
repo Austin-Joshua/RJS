@@ -397,6 +397,38 @@ def test_no_back_to_back_same_crop_when_alternative_exists() -> None:
     assert opt["sequence"] == ["groundnut", "black_gram", "groundnut"]
 
 
+def test_delta_curation_anchors_kharif_paddy_when_water_is_sufficient() -> None:
+    """Thanjavur delta: abundant water + alluvial soil → kharif paddy in the plan."""
+    from app.quantum.rotation import (
+        brute_force_rotation,
+        build_rotation_context,
+        resolve_delta_curation,
+    )
+
+    soil = {"soil_type": "alluvial", "water": {"category": "abundant"}}
+    crops = ["paddy", "black_gram", "groundnut"]
+    curation = resolve_delta_curation(soil, crops)
+    assert curation["system"] == "cauvery_delta_rice_fallow"
+    assert curation["anchors"]["kharif"] == "paddy"
+
+    ctx = build_rotation_context(
+        seasons=["kharif", "rabi", "summer"],
+        crops=crops,
+        base_value_per_crop={"paddy": 38000.0, "black_gram": 23822.4, "groundnut": 85128.0},
+        area_ha=1.2,
+        anchors=curation["anchors"],
+    )
+    opt = brute_force_rotation(ctx)
+    assert opt["sequence"] == ["paddy", "black_gram", "groundnut"]
+
+
+def test_delta_curation_off_when_water_is_low() -> None:
+    from app.quantum.rotation import resolve_delta_curation
+
+    soil = {"soil_type": "alluvial", "water": {"category": "low"}}
+    assert resolve_delta_curation(soil, ["paddy", "groundnut"])["anchors"] == {}
+
+
 def test_rotation_qubo_is_one_season_per_block() -> None:
     from app.quantum.rotation import build_rotation_qubo
 

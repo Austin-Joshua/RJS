@@ -49,6 +49,17 @@ same_crop_consecutive_multiplier: 0.82
 # another eligible crop exists for that slot (ICAR/TNAU break-crop guidance).
 max_consecutive_same_crop: 1
 
+# Regional curated systems — anchor key seasons when ecology + water support them.
+# LightGBM can under-predict delta paddy; the yield floor keeps economics sane.
+curated_systems:
+  cauvery_delta_rice_fallow:
+    water_categories: [high, abundant]
+    soil_types: [alluvial, clay, clay_loam]
+    paddy_yield_floor_t_ha: 3.2
+    anchors:
+      kharif: paddy
+    note: "Cauvery delta rice-fallow: kharif paddy when water is sufficient, then pulse/oilseed break crops."
+
 # First season of the cycle has no predecessor. Its yield is taken at face
 # value from the classical model, with the soil card's own nitrogen status as
 # the only prior.
