@@ -16,6 +16,15 @@ from app.core.config import get_settings
 CLOUD_PIXEL_PCT_MAX = 40
 MIN_CLEAR_SCENES = 2
 
+# Single source of truth for how an NDVI value becomes a colour, shared with the
+# uploaded-raster renderer in app/services/raster_ndvi.py. Both layers must use
+# the same stretch or the same NDVI reads as a different colour depending on
+# which source drew it: bare soil at 0.15 looked healthy on a -1..1 ramp because
+# more than half the ramp covers values vegetation never reaches.
+NDVI_VIS_MIN = 0.0
+NDVI_VIS_MAX = 0.9
+NDVI_PALETTE_HEX = ("a50026", "fee08b", "1a9850")  # stressed -> transitional -> vigorous
+
 
 @lru_cache
 def _ee_module_or_none():
@@ -124,7 +133,7 @@ def get_ndvi_png(boundary_geojson: dict, start_date: str, end_date: str) -> tupl
         boundary = ee.Geometry(boundary_geojson)
         collection = _cloud_masked_collection(ee, boundary, start_date, end_date)
         mean_ndvi = collection.select("NDVI").mean().clip(boundary)
-        vis_params = {"min": 0.0, "max": 0.9, "palette": ["a50026", "fee08b", "1a9850"]}
+        vis_params = {"min": NDVI_VIS_MIN, "max": NDVI_VIS_MAX, "palette": list(NDVI_PALETTE_HEX)}
         url = mean_ndvi.getThumbURL({**vis_params, "region": boundary, "dimensions": 512, "format": "png"})
         resp = httpx.get(url, timeout=15.0)
         resp.raise_for_status()

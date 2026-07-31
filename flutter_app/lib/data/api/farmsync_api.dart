@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../models/api_models.dart';
+import '../models/farm_models.dart';
 
 /// Thin wrapper over every `/api/v1` endpoint.
 class FarmSyncApi {
@@ -13,6 +15,84 @@ class FarmSyncApi {
   Future<HealthStatus> healthz() async {
     final r = await _client.get<Map<String, dynamic>>('/healthz');
     return HealthStatus.fromJson(r.data!);
+  }
+
+  // --- farms: the product flow (brief §2) --------------------------------
+  // Every call is scoped server-side to the signed-in Google account; there
+  // is no client-side filtering to get wrong.
+
+  Future<List<FarmOut>> listFarms() async {
+    final r = await _client.get<Map<String, dynamic>>('/farms');
+    return [
+      for (final f in (r.data?['farms'] as List<dynamic>? ?? const []))
+        FarmOut.fromJson(f as Map<String, dynamic>),
+    ];
+  }
+
+  Future<FarmOut> getFarm(String farmId) async {
+    final r = await _client.get<Map<String, dynamic>>('/farms/$farmId');
+    return FarmOut.fromJson(r.data!['farm'] as Map<String, dynamic>);
+  }
+
+  /// Creates the farm and its first soil card in one call, so the farmer sees
+  /// their classified card immediately after entering readings (§2.2 → §2.3).
+  Future<({FarmOut farm, SoilCardOut soilCard})> createFarm({
+    required String name,
+    required double lat,
+    required double lon,
+    required double areaHa,
+    required SoilReadingsIn soil,
+    String? sowingDate,
+  }) async {
+    final r = await _client.post<Map<String, dynamic>>(
+      '/farms',
+      data: {
+        'name': name,
+        'lat': lat,
+        'lon': lon,
+        'area_ha': areaHa,
+        'sowing_date': ?sowingDate,
+        'soil': soil.toJson(),
+      },
+    );
+    return (
+      farm: FarmOut.fromJson(r.data!['farm'] as Map<String, dynamic>),
+      soilCard: SoilCardOut.fromJson(r.data!['soil_card'] as Map<String, dynamic>),
+    );
+  }
+
+  Future<void> deleteFarm(String farmId) => _client.delete<void>('/farms/$farmId');
+
+  Future<SoilCardOut> getSoilCard(String farmId) async {
+    final r = await _client.get<Map<String, dynamic>>('/farms/$farmId/soil-card');
+    return SoilCardOut.fromJson(r.data!['soil_card'] as Map<String, dynamic>);
+  }
+
+  Future<SoilCardOut> addSoilCard(String farmId, SoilReadingsIn soil) async {
+    final r = await _client.post<Map<String, dynamic>>('/farms/$farmId/soil-card', data: soil.toJson());
+    return SoilCardOut.fromJson(r.data!['soil_card'] as Map<String, dynamic>);
+  }
+
+  Future<FeasibilityOut> feasibleCrops(String farmId) async {
+    final r = await _client.get<Map<String, dynamic>>('/farms/$farmId/feasible-crops');
+    return FeasibilityOut.fromJson(r.data!);
+  }
+
+  /// Runs the quantum sequencer for this farm (§2.5). Recomputed per farm on
+  /// every call — never reused from another farm.
+  Future<RankResultOut> rankCrops(String farmId) async {
+    final r = await _client.post<Map<String, dynamic>>('/farms/$farmId/rank', data: const {});
+    return RankResultOut.fromJson(r.data!);
+  }
+
+  Future<RankResultOut> latestRanking(String farmId) async {
+    final r = await _client.get<Map<String, dynamic>>('/farms/$farmId/rotation-plan');
+    return RankResultOut.fromJson({...r.data!, 'field_id': farmId});
+  }
+
+  Future<DashboardOut> dashboard() async {
+    final r = await _client.get<Map<String, dynamic>>('/dashboard');
+    return DashboardOut.fromJson(r.data!);
   }
 
   // --- fields ---
@@ -166,6 +246,7 @@ class FarmSyncApi {
     required double waterM3,
     required double budgetRs,
     Map<String, double>? priceOverrides,
+    double? riskAversion,
   }) async {
     final r = await _client.post<Map<String, dynamic>>(
       '/plan',
@@ -175,6 +256,7 @@ class FarmSyncApi {
         'candidate_crops': candidateCrops,
         'constraints': {'water_m3': waterM3, 'budget_rs': budgetRs},
         'price_overrides': ?priceOverrides,
+        'risk_aversion': ?riskAversion,
       },
     );
     return PlanOut.fromJson(r.data!);
@@ -206,3 +288,8 @@ class FarmSyncApi {
     return r.data!;
   }
 }
+
+
+/// Single API client for the app, wired to the auth interceptor in
+/// `core/api_client.dart` so every request carries the Clerk session token.
+final farmSyncApiProvider = Provider<FarmSyncApi>((ref) => FarmSyncApi(ref.watch(apiClientProvider)));

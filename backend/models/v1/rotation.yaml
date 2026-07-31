@@ -1,0 +1,66 @@
+# Rotation-effect reference for the quantum sequencing optimiser
+# (app/quantum/rotation.py). Kept in its own file rather than inside
+# crops.yaml because it is a *pairwise* table, not a per-crop property.
+#
+# WHY THIS FILE IS THE REASON QUANTUM IS NOT COSMETIC
+# ---------------------------------------------------
+# Ranking crops by predicted profit is a sort. What makes crop *sequencing* a
+# genuine combinatorial problem is that a crop's realised yield depends on what
+# was grown before it. That dependency lives here, and it is what turns the
+# objective from separable (sortable) into quadratic (a QUBO).
+#
+# Two well-documented mechanisms, kept separate so each can be defended:
+#
+#   1. yield_multiplier — the "break crop" / continuous-cropping effect. A
+#      cereal following a legume out-yields the same cereal following itself by
+#      more than the nitrogen alone explains: broken pest and disease cycles,
+#      improved soil structure, reduced weed carryover. Continuous rice in the
+#      Cauvery delta is a documented yield-decline problem.
+#
+#   2. n_credit — fertiliser nitrogen the following crop can skip, taken from
+#      each crop's `rotation.n_credit_kg_ha`. Monetised through urea price, so
+#      it shows up as a real cash saving rather than an abstract score.
+#
+# Multipliers are conservative mid-points of the ranges reported in the
+# rotation literature; they are config so they can be argued with, and every
+# number the optimiser used is echoed back in the API response.
+
+# yield_multiplier[previous_family][next_family]
+yield_multiplier:
+  legume:
+    cereal: 1.15 # break-crop bonus beyond the N credit
+    legume: 0.92 # pulse-on-pulse: root rot and wilt carryover
+    grass: 1.10
+  cereal:
+    cereal: 0.96 # different cereal — mild carryover
+    legume: 1.05 # legumes benefit from a cereal break
+    grass: 1.00
+  grass:
+    cereal: 0.95
+    legume: 1.02
+    grass: 0.90
+
+# Applied on top of the family multiplier when the *identical* crop is grown in
+# consecutive seasons. This is the continuous-monoculture penalty and it is the
+# single strongest coupling term in the model.
+same_crop_consecutive_multiplier: 0.88
+
+# First season of the cycle has no predecessor. Its yield is taken at face
+# value from the classical model, with the soil card's own nitrogen status as
+# the only prior.
+no_predecessor_multiplier: 1.00
+
+# Urea used to convert an N credit into rupees (matches fertilizers.yaml).
+urea_n_fraction: 0.46
+urea_price_rs_per_kg: 6.0
+
+# Ordered season cycle. A rotation plan assigns one crop to each of these.
+season_cycle:
+  - { code: kharif, name_en: "Kharif (Jun-Oct)", name_ta: "காரிஃப்" }
+  - { code: rabi, name_en: "Rabi (Oct-Feb)", name_ta: "ராபி" }
+  - { code: summer, name_en: "Summer (Feb-May)", name_ta: "கோடை" }
+
+sources:
+  - "TNAU Crop Production Guide — cropping systems and rotations"
+  - "ICAR package of practices — pulses as rice-fallow break crops"
+  - "Continuous-rice yield decline, Cauvery delta cropping-systems literature"

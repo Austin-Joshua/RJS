@@ -1,6 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Every screen in this app reads live data over the API, so without
+         INTERNET here a release build shows nothing at all. It was previously
+         declared only in the debug and profile manifests, which meant debug
+         runs worked and the shipped APK could not reach the backend. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- "Use my current location" when adding a farm. Coarse is enough to
+         place a farm and resolve its district; fine improves the pin. Both are
+         optional at runtime — the farmer can type coordinates instead. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-feature android:name="android.hardware.location" android:required="false"/>
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+
     <application
-        android:label="flutter_app"
+        android:label="Crop Advisor"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -32,6 +32,21 @@ class Settings(BaseSettings):
     clerk_jwt_key: str = ""
     clerk_authorized_parties_raw: str = Field("", alias="CLERK_AUTHORIZED_PARTIES")
 
+    # --- Developer login (off by default, for local work and demos) ---------
+    # Both must be set for it to do anything, and the token is compared in
+    # constant time. This is not the old `demo-farmer` bypass: that was a
+    # hardcoded string every build accepted, so anyone could read one shared
+    # profile. This is an operator-chosen secret that resolves to a *specific*
+    # account id, so the seeded demo profile is isolated exactly like a real
+    # Google account's. Leave both blank in production — `/healthz` reports
+    # `dev_login_enabled` so an accidental deploy with it on is visible.
+    dev_login_user: str = ""
+    dev_login_token: str = ""
+
+    @property
+    def dev_login_enabled(self) -> bool:
+        return bool(self.dev_login_user and self.dev_login_token)
+
     @property
     def clerk_authorized_parties(self) -> list[str]:
         return [p.strip() for p in self.clerk_authorized_parties_raw.split(",") if p.strip()]
@@ -48,11 +63,34 @@ class Settings(BaseSettings):
 
     # Model / quantum runtime
     model_version: str = "v1"
-    demo_mode: bool = False
     qaoa_timeout_s: float = 10.0
     qaoa_layers: int = 3
-    encoding: str = "slack"  # "slack" | "unbalanced"
+    encoding: str = "slack"  # "slack" | "unbalanced" — legacy QAOA path only
     allow_synthetic: bool = True
+
+    # SPARQ — Simplex-Preserving Adaptive Risk-aware QAOA (app/quantum/sparq.py).
+    # Primary solver for /plan. The legacy QAOA above is still built and run on
+    # every request as the head-to-head baseline (FR-44 honesty discipline
+    # extended: we show the quantum predecessor, not just the classical one).
+    solver: str = "sparq"  # "sparq" | "qaoa"
+    # Run the legacy transverse-field QAOA alongside SPARQ on every /plan call
+    # so the head-to-head is live rather than a stale slide. It is the slowest
+    # thing on the critical path (it explores 2^n where SPARQ explores C^P), so
+    # set false if a slow venue machine puts NFR-02's 8s p95 at risk — the plan
+    # itself never depends on it.
+    run_baseline_qaoa: bool = True
+    sparq_layers: int = 3  # p=3 — sweep showed p=5 costs 3x wall time for noise
+    sparq_warm_start_tau: float = 0.35  # softmax temperature on net value
+    sparq_maxiter_per_layer: int = 60  # COBYLA iterations per INTERP stage
+    sparq_shots: int = 2048
+
+    # Risk model (app/quantum/risk.py). kappa is the mean-variance trade-off:
+    # 0 reproduces the old expected-value-only plan exactly, higher values buy
+    # variance reduction with expected rupees. Farmer-overridable per request.
+    risk_kappa: float = 0.35
+    risk_scenarios: int = 256
+    risk_cross_crop_rho: float = 0.45  # shared-monsoon correlation between crops
+    risk_cvar_beta: float = 0.2  # reported tail fraction, not optimised
 
     # Data paths
     data_dir: Path = BACKEND_ROOT / "data"

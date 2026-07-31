@@ -37,20 +37,44 @@ class YieldModel:
             if col in self.categories:
                 df[col] = pd.Categorical(df[col], categories=self.categories[col])
             else:
-                # A single all-None value (e.g. NDVI/gdd unavailable in DEMO_MODE
-                # or a degraded fetch) makes pandas infer dtype "object", which
+                # A single all-None value (e.g. NDVI unavailable on a degraded
+                # fetch) makes pandas infer dtype "object", which
                 # LightGBM rejects outright. Force float64 so NaN — not a
                 # fabricated 0 — represents "unobserved" (FR-34).
                 df[col] = pd.to_numeric(df[col], errors="coerce")
         return df
 
     def predict_row(self, row: dict) -> tuple[float, float, float]:
+        """Point estimate plus a P10-P90 band that always brackets it.
+
+        The two quantile heads are fitted independently of the median model, so
+        on crops with few rows or an extreme scale (sugarcane at ~100 t/ha
+        against everything else under 5) they can cross each other, or land
+        entirely on one side of the point estimate. A "10th percentile" above
+        the estimate is not a band, it is a bug, and it would flow straight
+        into the rupee figures a farmer sees.
+
+        Sorting handles crossing; widening handles the bracket. Both are
+        clamps on a model weakness, not a fix for it — `band_is_widened`
+        reports when it fired so the UI can mark the confidence as reduced.
+        """
         df = self.to_frame(row)
-        yield_t_ha = self._inverse_transform(self.booster.predict(df)[0])
+        yield_t_ha = max(0.0, self._inverse_transform(self.booster.predict(df)[0]))
         p10 = self._inverse_transform(self.q10.predict(df)[0])
         p90 = self._inverse_transform(self.q90.predict(df)[0])
-        lo, hi = sorted((p10, p90))  # guard quantile crossing at small demo-scale n
-        return round(max(0.0, yield_t_ha), 3), round(max(0.0, lo), 3), round(max(0.0, hi), 3)
+
+        lo, hi = sorted((p10, p90))  # quantile heads can cross at small n
+        lo, hi = min(lo, yield_t_ha), max(hi, yield_t_ha)
+        return round(yield_t_ha, 3), round(max(0.0, lo), 3), round(max(0.0, hi), 3)
+
+    def band_is_widened(self, row: dict) -> bool:
+        """True when the quantile heads failed to bracket the point estimate."""
+        df = self.to_frame(row)
+        point = self._inverse_transform(self.booster.predict(df)[0])
+        lo, hi = sorted(
+            (self._inverse_transform(self.q10.predict(df)[0]), self._inverse_transform(self.q90.predict(df)[0]))
+        )
+        return not (lo <= point <= hi)
 
 
 @lru_cache

@@ -1,16 +1,18 @@
-"""Three-source data fusion — soil + weather + NDVI (FR-20..25, TRD §3).
+"""Three-source data fusion — soil + weather + NDVI (TRD §3).
 
-Sources are fetched concurrently (NFR-03). `data_mode` is derived, never
-hand-set: "demo" under DEMO_MODE, "live" when all three sources returned a
-value, "degraded" otherwise — surfaced to the UI, never hidden (FR-23).
+Sources are fetched concurrently. `data_mode` is derived, never hand-set:
+"live" when all three sources returned a value, "degraded" otherwise, and it is
+surfaced to the UI rather than hidden.
+
+There is no fixture path. Every value here comes from a real source — the
+farmer's own soil readings, the weather API, or Sentinel-2 — because a
+recommendation computed from canned JSON is not a recommendation.
 """
 import asyncio
-import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from app.adapters import ndvi_gee, soil_shc, weather_openmeteo
-from app.core.config import get_settings
 from app.services import raster_ndvi
 
 
@@ -31,13 +33,6 @@ def season_start(sowing_date: str | None) -> str:
     return sowing_date or (date.today() - timedelta(days=90)).isoformat()
 
 
-def _load_demo_fixture() -> dict[str, Any]:
-    settings = get_settings()
-    path = settings.data_dir / "fixtures" / "signals_demo.json"
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
-
-
 async def fuse_field(
     *,
     district: str,
@@ -52,13 +47,6 @@ async def fuse_field(
     active uploaded raster (see app/db/models.py RasterAsset) — a ground-truth
     drone/orthomosaic NDVI blended with the satellite value, never a live
     rasterio recompute on this hot path."""
-    settings = get_settings()
-    if settings.demo_mode:
-        fixture = _load_demo_fixture()
-        fixture["data_mode"] = "demo"
-        fixture["season"] = determine_season(sowing_date)
-        fixture["fetched_at"] = datetime.now(timezone.utc).isoformat()
-        return fixture
 
     start = season_start(sowing_date)
     end = date.today().isoformat()

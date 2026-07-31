@@ -73,6 +73,22 @@ async def _fetch_forecast(lat: float, lon: float) -> dict | None:
     return data
 
 
+MIN_VALID_DAYS = 10  # below this the window is too sparse to aggregate honestly
+
+
+def _clean(values: list | None, lo: float, hi: float) -> list[float]:
+    """Keep only physically plausible readings.
+
+    Providers signal "no data" with out-of-range sentinels (-999) as well as
+    nulls, and a sentinel that reaches an aggregate poisons every feature
+    derived from it. Bounds are physical limits, not statistical outlier
+    trimming — a real 55 C day survives.
+    """
+    if not values:
+        return []
+    return [float(v) for v in values if v is not None and lo <= float(v) <= hi]
+
+
 async def _fetch_nasa_power_fallback(lat: float, lon: float, start: str, end: str) -> dict | None:
     params = {
         "parameters": "T2M,T2M_MAX,RH2M,PRECTOTCORR",
@@ -91,18 +107,31 @@ async def _fetch_nasa_power_fallback(lat: float, lon: float, start: str, end: st
     except (httpx.HTTPError, ValueError, KeyError):
         return None
 
+    # NASA POWER fills gaps with -999, so the same physical-plausibility filter
+    # the Open-Meteo path uses is required here. Without it the "fallback" is
+    # worse than no data: it returns a -37 C mean and looks successful.
     dates = sorted(payload["T2M"].keys())
-    precip = [payload["PRECTOTCORR"][d] for d in dates]
+    precip = _clean([payload["PRECTOTCORR"][d] for d in dates], 0.0, 2000.0)
+    temp_mean = _clean([payload["T2M"][d] for d in dates], -60.0, 60.0)
+    temp_max = _clean([payload["T2M_MAX"][d] for d in dates], -60.0, 65.0)
+    humidity = _clean([payload["RH2M"][d] for d in dates], 0.0, 100.0)
+
+    if len(temp_mean) < MIN_VALID_DAYS or len(precip) < MIN_VALID_DAYS:
+        return None
+
     return {
         "source": "nasa_power",
-        "rainfall_cum_mm": sum(precip),
-        "rainfall_last30_mm": sum(precip[-30:]),
+        "observation_days": len(precip),
+        "rainfall_cum_mm": round(sum(precip), 1),
+        "rainfall_last30_mm": round(sum(precip[-30:]), 1),
         "dry_spell_max_days": _dry_spell(precip),
-        "temp_mean_c": sum(payload["T2M"].values()) / len(payload["T2M"]),
-        "temp_max_c": max(payload["T2M_MAX"].values()),
-        "humidity_mean_pct": sum(payload["RH2M"].values()) / len(payload["RH2M"]),
+        "temp_mean_c": round(sum(temp_mean) / len(temp_mean), 2),
+        "temp_max_c": round(max(temp_max), 2) if temp_max else None,
+        "humidity_mean_pct": round(sum(humidity) / len(humidity), 2) if humidity else None,
         "et0_cum_mm": None,
-        "daily_temp_mean_c": None,  # NASA fallback path can't support per-crop GDD recompute
+        # Per-day series kept so features.py can compute GDD with the candidate
+        # crop's own T_base rather than one fixed baseline here.
+        "daily_temp_mean_c": temp_mean,
         "forecast_7d_rainfall_mm": None,
     }
 
@@ -127,14 +156,34 @@ async def get_weather_features(lat: float, lon: float, sowing_date: str | None) 
         return fallback
 
     daily = archive["daily"]
-    precip = [p for p in daily["precipitation_sum"] if p is not None]
-    temp_mean = [t for t in daily["temperature_2m_mean"] if t is not None]
-    temp_max = [t for t in daily["temperature_2m_max"] if t is not None]
-    humidity = [h for h in daily["relative_humidity_2m_mean"] if h is not None]
-    et0 = [e for e in daily["et0_fao_evapotranspiration"] if e is not None]
+    precip = _clean(daily["precipitation_sum"], 0.0, 2000.0)
+    temp_mean = _clean(daily["temperature_2m_mean"], -60.0, 60.0)
+    temp_max = _clean(daily["temperature_2m_max"], -60.0, 65.0)
+    humidity = _clean(daily["relative_humidity_2m_mean"], 0.0, 100.0)
+    et0 = _clean(daily["et0_fao_evapotranspiration"], 0.0, 30.0)
+
+    # ERA5 reanalysis lags real time by several days, and the archive fills the
+    # gap with out-of-range sentinels rather than nulls. Filtering only `None`
+    # let those through, which produced -37 C mean temperature and -62 mm/day
+    # rainfall — and a yield model handed physically impossible inputs returns
+    # physically impossible yields. Too few surviving days is a degraded fetch,
+    # not a usable one.
+    if len(temp_mean) < MIN_VALID_DAYS or len(precip) < MIN_VALID_DAYS:
+        fallback = await _fetch_nasa_power_fallback(lat, lon, start.isoformat(), today.isoformat())
+        if fallback is not None:
+            fallback["forecast_7d_rainfall_mm"] = (
+                sum(forecast["daily"]["precipitation_sum"]) if forecast else None
+            )
+            fallback["fetched_at"] = datetime.now(timezone.utc).isoformat()
+            return fallback
+        return None
 
     return {
         "source": "open_meteo",
+        # Window length, so features.py can normalise cumulative quantities
+        # into rates. Without it a mid-season row is not comparable to a
+        # full-season training row.
+        "observation_days": len(precip),
         "rainfall_cum_mm": round(sum(precip), 1),
         "rainfall_last30_mm": round(sum(precip[-30:]), 1),
         "dry_spell_max_days": _dry_spell(precip),

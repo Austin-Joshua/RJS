@@ -7,21 +7,26 @@ class HealthStatus {
     required this.earthEngineInitialized,
     required this.modelLoaded,
     required this.modelVersion,
-    required this.demoMode,
+    required this.authConfigured,
+    this.devLoginEnabled = false,
   });
 
   final String status;
   final bool earthEngineInitialized;
   final bool modelLoaded;
   final String modelVersion;
-  final bool demoMode;
+  /// Whether the server has a Clerk verification key. Without it every data
+  /// route 401s, so this is the first thing to check on a bad deploy.
+  final bool authConfigured;
+  final bool devLoginEnabled;
 
   factory HealthStatus.fromJson(Map<String, dynamic> j) => HealthStatus(
         status: j['status'] as String? ?? 'ok',
         earthEngineInitialized: j['earth_engine_initialized'] as bool? ?? false,
         modelLoaded: j['model_loaded'] as bool? ?? false,
         modelVersion: j['model_version'] as String? ?? 'v1',
-        demoMode: j['demo_mode'] as bool? ?? false,
+        authConfigured: j['auth_configured'] as bool? ?? false,
+        devLoginEnabled: j['dev_login_enabled'] as bool? ?? false,
       );
 }
 
@@ -104,6 +109,61 @@ class PlanAssignmentOut {
       );
 }
 
+/// Profit distribution of a plan across correlated yield scenarios.
+///
+/// Reported by the backend, not optimised: CVaR is not quadratic in the
+/// decision variables, so the QUBO encodes a mean-variance surrogate instead.
+class PlanRiskOut {
+  const PlanRiskOut({
+    required this.expectedRs,
+    required this.stdRs,
+    required this.cvarRs,
+    required this.cvarBeta,
+    this.worstCaseRs,
+    this.bestCaseRs,
+    this.nScenarios,
+  });
+
+  final double expectedRs;
+  final double stdRs;
+  final double cvarRs;
+  final double cvarBeta;
+  final double? worstCaseRs;
+  final double? bestCaseRs;
+  final int? nScenarios;
+
+  factory PlanRiskOut.fromJson(Map<String, dynamic> j) => PlanRiskOut(
+        expectedRs: (j['expected_rs'] as num?)?.toDouble() ?? 0,
+        stdRs: (j['std_rs'] as num?)?.toDouble() ?? 0,
+        cvarRs: (j['cvar_rs'] as num?)?.toDouble() ?? 0,
+        cvarBeta: (j['cvar_beta'] as num?)?.toDouble() ?? 0.2,
+        worstCaseRs: (j['worst_case_rs'] as num?)?.toDouble(),
+        bestCaseRs: (j['best_case_rs'] as num?)?.toDouble(),
+        nScenarios: (j['n_scenarios'] as num?)?.toInt(),
+      );
+}
+
+class PlanDiversificationOut {
+  const PlanDiversificationOut({
+    required this.distinctCrops,
+    required this.nPlots,
+    required this.cropMix,
+  });
+
+  final int distinctCrops;
+  final int nPlots;
+  final Map<String, int> cropMix;
+
+  factory PlanDiversificationOut.fromJson(Map<String, dynamic> j) => PlanDiversificationOut(
+        distinctCrops: (j['distinct_crops'] as num?)?.toInt() ?? 0,
+        nPlots: (j['n_plots'] as num?)?.toInt() ?? 0,
+        cropMix: {
+          for (final e in (j['crop_mix'] as Map<String, dynamic>? ?? const {}).entries)
+            e.key: (e.value as num).toInt(),
+        },
+      );
+}
+
 class PlanCoreOut {
   const PlanCoreOut({
     required this.solver,
@@ -113,6 +173,10 @@ class PlanCoreOut {
     required this.netValueP90Rs,
     required this.waterUsedM3,
     required this.budgetUsedRs,
+    this.certaintyEquivalentRs,
+    this.riskAdjustedValueRs,
+    this.risk,
+    this.diversification,
   });
 
   final String solver;
@@ -122,6 +186,16 @@ class PlanCoreOut {
   final double netValueP90Rs;
   final double waterUsedM3;
   final double budgetUsedRs;
+
+  /// Expected rupees minus κ standard deviations — what the plan is worth at
+  /// the farmer's chosen risk appetite. This is the money figure for the UI.
+  final double? certaintyEquivalentRs;
+
+  /// Raw mean-minus-κ·variance score the solver ranked by. Quadratic (so it
+  /// fits a QUBO) but not in meaningful rupees — quantum panel only.
+  final double? riskAdjustedValueRs;
+  final PlanRiskOut? risk;
+  final PlanDiversificationOut? diversification;
 
   factory PlanCoreOut.fromJson(Map<String, dynamic> j) => PlanCoreOut(
         solver: j['solver'] as String,
@@ -134,6 +208,57 @@ class PlanCoreOut {
         netValueP90Rs: (j['net_value_p90_rs'] as num).toDouble(),
         waterUsedM3: (j['water_used_m3'] as num).toDouble(),
         budgetUsedRs: (j['budget_used_rs'] as num).toDouble(),
+        certaintyEquivalentRs: (j['certainty_equivalent_rs'] as num?)?.toDouble(),
+        riskAdjustedValueRs: (j['risk_adjusted_value_rs'] as num?)?.toDouble(),
+        risk: j['risk'] == null ? null : PlanRiskOut.fromJson(j['risk'] as Map<String, dynamic>),
+        diversification: j['diversification'] == null
+            ? null
+            : PlanDiversificationOut.fromJson(j['diversification'] as Map<String, dynamic>),
+      );
+}
+
+/// One point of the real COBYLA trace: CVaR energy at a given INTERP depth.
+class ConvergencePoint {
+  const ConvergencePoint({required this.layer, required this.iteration, required this.cvarEnergy});
+
+  final int layer;
+  final int iteration;
+  final double cvarEnergy;
+
+  factory ConvergencePoint.fromJson(Map<String, dynamic> j) => ConvergencePoint(
+        layer: (j['layer'] as num?)?.toInt() ?? 1,
+        iteration: (j['iteration'] as num?)?.toInt() ?? 0,
+        cvarEnergy: (j['cvar_energy'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+/// The previous-generation transverse-field QAOA, run on the same instance.
+/// Shipped in every response so the improvement is a measurement on screen,
+/// not a claim in a slide.
+class BaselineQaoaOut {
+  const BaselineQaoaOut({
+    required this.nQubits,
+    required this.slackQubits,
+    this.feasibleRate,
+    this.upliftVsUniform,
+    this.upliftVsFeasibleUniform,
+    required this.tS,
+  });
+
+  final int nQubits;
+  final int slackQubits;
+  final double? feasibleRate;
+  final double? upliftVsUniform;
+  final double? upliftVsFeasibleUniform;
+  final double tS;
+
+  factory BaselineQaoaOut.fromJson(Map<String, dynamic> j) => BaselineQaoaOut(
+        nQubits: (j['n_qubits'] as num?)?.toInt() ?? 0,
+        slackQubits: (j['slack_qubits'] as num?)?.toInt() ?? 0,
+        feasibleRate: (j['feasible_rate'] as num?)?.toDouble(),
+        upliftVsUniform: (j['uplift_vs_uniform'] as num?)?.toDouble(),
+        upliftVsFeasibleUniform: (j['uplift_vs_feasible_uniform'] as num?)?.toDouble(),
+        tS: (j['t_s'] as num?)?.toDouble() ?? 0,
       );
 }
 
@@ -149,10 +274,22 @@ class BenchmarkOut {
     required this.matchedOptimum,
     this.pOptimum,
     this.upliftVsUniform,
+    this.upliftVsFeasibleUniform,
     this.feasibleRate,
+    this.simplexRate,
     required this.tQaoaS,
     required this.tClassicalS,
     required this.claim,
+    this.solver = 'sparq',
+    this.timedOut = false,
+    this.convergence = const [],
+    this.warmStart = const {},
+    this.riskKappa,
+    this.riskScenarios,
+    this.planStdRs,
+    this.riskNeutralStdRs,
+    this.profitHistogram = const [],
+    this.baseline,
     this.raw,
   });
 
@@ -166,27 +303,71 @@ class BenchmarkOut {
   final bool matchedOptimum;
   final double? pOptimum;
   final double? upliftVsUniform;
+
+  /// P(optimum) divided by uniform over the C^P *valid* assignments — the
+  /// harder baseline, and the one to quote. An ansatz that cannot emit an
+  /// invalid bitstring shouldn't get credit for declining to.
+  final double? upliftVsFeasibleUniform;
   final double? feasibleRate;
+
+  /// Fraction of samples that are one-crop-per-plot. Exactly 1.0 under the
+  /// XY-ring mixer — Hamming weight per block is a conserved quantity.
+  final double? simplexRate;
   final double tQaoaS;
   final double tClassicalS;
   final String claim;
+  final String solver;
+  final bool timedOut;
+  final List<ConvergencePoint> convergence;
+  final Map<String, Map<String, double>> warmStart;
+  final double? riskKappa;
+  final int? riskScenarios;
+  final double? planStdRs;
+  final double? riskNeutralStdRs;
+  final List<Map<String, dynamic>> profitHistogram;
+  final BaselineQaoaOut? baseline;
   final Map<String, dynamic>? raw;
 
   factory BenchmarkOut.fromJson(Map<String, dynamic> j) => BenchmarkOut(
-        nQubits: j['n_qubits'] as int? ?? 0,
+        nQubits: (j['n_qubits'] as num?)?.toInt() ?? 0,
         encoding: j['encoding'] as String? ?? '',
-        qaoaLayers: j['qaoa_layers'] as int? ?? 0,
-        quboTerms: j['qubo_terms'] as int? ?? 0,
+        qaoaLayers: (j['qaoa_layers'] as num?)?.toInt() ?? 0,
+        quboTerms: (j['qubo_terms'] as num?)?.toInt() ?? 0,
         qaoaEnergy: (j['qaoa_energy'] as num?)?.toDouble(),
         classicalOptimum: (j['classical_optimum'] as num?)?.toDouble() ?? 0,
         approximationRatio: (j['approximation_ratio'] as num?)?.toDouble(),
         matchedOptimum: j['matched_optimum'] as bool? ?? false,
         pOptimum: (j['p_optimum'] as num?)?.toDouble(),
         upliftVsUniform: (j['uplift_vs_uniform'] as num?)?.toDouble(),
+        upliftVsFeasibleUniform: (j['uplift_vs_feasible_uniform'] as num?)?.toDouble(),
         feasibleRate: (j['feasible_rate'] as num?)?.toDouble(),
+        simplexRate: (j['simplex_rate'] as num?)?.toDouble(),
         tQaoaS: (j['t_qaoa_s'] as num?)?.toDouble() ?? 0,
         tClassicalS: (j['t_classical_s'] as num?)?.toDouble() ?? 0,
         claim: j['claim'] as String? ?? '',
+        solver: j['solver'] as String? ?? 'sparq',
+        timedOut: j['timed_out'] as bool? ?? false,
+        convergence: [
+          for (final c in (j['convergence'] as List<dynamic>? ?? const []))
+            ConvergencePoint.fromJson(c as Map<String, dynamic>),
+        ],
+        warmStart: {
+          for (final e in (j['warm_start'] as Map<String, dynamic>? ?? const {}).entries)
+            e.key: {
+              for (final c in (e.value as Map<String, dynamic>).entries) c.key: (c.value as num).toDouble(),
+            },
+        },
+        riskKappa: (j['risk_kappa'] as num?)?.toDouble(),
+        riskScenarios: (j['risk_scenarios'] as num?)?.toInt(),
+        planStdRs: (j['plan_std_rs'] as num?)?.toDouble(),
+        riskNeutralStdRs: (j['risk_neutral_std_rs'] as num?)?.toDouble(),
+        profitHistogram: [
+          for (final h in (j['profit_histogram'] as List<dynamic>? ?? const []))
+            Map<String, dynamic>.from(h as Map),
+        ],
+        baseline: j['baseline_qaoa'] == null
+            ? null
+            : BaselineQaoaOut.fromJson(j['baseline_qaoa'] as Map<String, dynamic>),
         raw: j,
       );
 }

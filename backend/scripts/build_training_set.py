@@ -52,6 +52,7 @@ import httpx
 import pandas as pd
 from shapely.geometry import shape
 
+from app.ml.features import build_feature_row
 from app.services.crop_reference import load_crops
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -100,6 +101,13 @@ def _load_soil() -> dict[str, dict]:
         return {row["district"]: row for row in csv.DictReader(f)}
 
 
+def _clean(values: list | None, lo: float, hi: float) -> list[float]:
+    """Physically plausible readings only — mirrors weather_openmeteo._clean."""
+    if not values:
+        return []
+    return [float(v) for v in values if v is not None and lo <= float(v) <= hi]
+
+
 def _dry_spell(precip: list[float]) -> int:
     longest = current = 0
     for p in precip:
@@ -139,15 +147,19 @@ def _fetch_weather(client: httpx.Client, lat: float, lon: float, start: date, en
     except (ValueError, KeyError):
         return None
 
-    precip = [p for p in daily["precipitation_sum"] if p is not None]
-    temp_mean = [t for t in daily["temperature_2m_mean"] if t is not None]
-    temp_max = [t for t in daily["temperature_2m_max"] if t is not None]
-    humidity = [h for h in daily["relative_humidity_2m_mean"] if h is not None]
-    et0 = [e for e in daily["et0_fao_evapotranspiration"] if e is not None]
-    if not temp_mean:
+    # Same physical-plausibility filter the runtime adapter applies. Providers
+    # signal missing data with out-of-range sentinels as well as nulls, and a
+    # sentinel here would silently poison a training row.
+    precip = _clean(daily["precipitation_sum"], 0.0, 2000.0)
+    temp_mean = _clean(daily["temperature_2m_mean"], -60.0, 60.0)
+    temp_max = _clean(daily["temperature_2m_max"], -60.0, 65.0)
+    humidity = _clean(daily["relative_humidity_2m_mean"], 0.0, 100.0)
+    et0 = _clean(daily["et0_fao_evapotranspiration"], 0.0, 30.0)
+    if len(temp_mean) < 10 or len(precip) < 10:
         return None
 
     return {
+        "observation_days": len(precip),
         "rainfall_cum_mm": round(sum(precip), 1),
         "rainfall_last30_mm": round(sum(precip[-30:]), 1),
         "dry_spell_max_days": _dry_spell(precip),
@@ -280,41 +292,26 @@ def build_real_panel(area_seed: int = 42) -> list[dict]:
         ndvi = cached.get("ndvi")
 
         soil_row = soil[district]
-        t_base_c = crops_cfg[crop]["t_base_c"]
-        gdd = _crop_gdd(weather["daily_temp_mean_c"], t_base_c)
         # Real per-holding area isn't published at district-crop grain; sampled
         # from TN's real average operational holding size band (Agriculture
         # Census ~0.6-1.4 ha) — the one non-government-sourced number here.
         area_ha = round(rng.uniform(0.6, 1.4), 3)
 
-        rows.append(
-            {
-                "year": year,
-                "district": district,
-                "crop": crop,
-                "season": "whole_year",
-                "n_kg_ha": float(soil_row["n_kg_ha"]),
-                "p_kg_ha": float(soil_row["p_kg_ha"]),
-                "k_kg_ha": float(soil_row["k_kg_ha"]),
-                "ph": float(soil_row["ph"]),
-                "oc_pct": float(soil_row["oc_pct"]),
-                "rainfall_cum_mm": weather["rainfall_cum_mm"],
-                "rainfall_last30_mm": weather["rainfall_last30_mm"],
-                "dry_spell_max_days": weather["dry_spell_max_days"],
-                "temp_mean_c": weather["temp_mean_c"],
-                "temp_max_c": weather["temp_max_c"],
-                "gdd": gdd,
-                "humidity_mean_pct": weather["humidity_mean_pct"],
-                "et0_cum_mm": weather["et0_cum_mm"],
-                "ndvi_mean": ndvi["ndvi_mean"] if ndvi else None,
-                "ndvi_max": ndvi["ndvi_max"] if ndvi else None,
-                "ndvi_p90": ndvi["ndvi_p90"] if ndvi else None,
-                "ndvi_slope_30d": ndvi["ndvi_slope_30d"] if ndvi else None,
-                "ndvi_auc": ndvi["ndvi_auc"] if ndvi else None,
-                "area_ha": area_ha,
-                "yield_t_ha": round(yield_t_ha, 3),
-            }
+        # Built by the same function the API calls at inference. This used to
+        # be an inline dict, which is how the two paths drifted apart: training
+        # rows carried whole-season totals while inference sent season-to-date
+        # ones, and the model silently extrapolated. One implementation is the
+        # only way that claim in features.py is actually true.
+        feature_row = build_feature_row(
+            soil={k: float(soil_row[k]) for k in ("n_kg_ha", "p_kg_ha", "k_kg_ha", "ph", "oc_pct")},
+            weather=weather,
+            ndvi=ndvi,
+            area_ha=area_ha,
+            crop=crop,
+            district=district,
+            season="whole_year",
         )
+        rows.append({"year": year, **feature_row, "yield_t_ha": round(yield_t_ha, 3)})
 
     if skipped_no_weather:
         print(f"  skipped {skipped_no_weather} rows with no fetchable weather (archive outage)")

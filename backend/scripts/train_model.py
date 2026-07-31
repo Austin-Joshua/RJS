@@ -43,31 +43,24 @@ TARGET_TRANSFORM = "log1p"
 CATEGORIES = {"crop": CROPS, "district": DISTRICTS, "season": SEASONS}
 
 
-def _row_to_features(row: pd.Series) -> dict:
-    soil = {k: row[k] for k in ("n_kg_ha", "p_kg_ha", "k_kg_ha", "ph", "oc_pct")}
-    weather = {
-        "rainfall_cum_mm": row["rainfall_cum_mm"],
-        "rainfall_last30_mm": row["rainfall_last30_mm"],
-        "dry_spell_max_days": row["dry_spell_max_days"],
-        "temp_mean_c": row["temp_mean_c"],
-        "temp_max_c": row["temp_max_c"],
-        "gdd": row["gdd"],  # pre-computed in the training CSV -> skips recompute-from-daily-series path
-        "humidity_mean_pct": row["humidity_mean_pct"],
-        "et0_cum_mm": row["et0_cum_mm"],
-    }
-    ndvi = None
-    if pd.notna(row["ndvi_mean"]):
-        ndvi = {k: row[k] for k in ("ndvi_mean", "ndvi_max", "ndvi_p90", "ndvi_slope_30d", "ndvi_auc")}
-    return build_feature_row(
-        soil=soil, weather=weather, ndvi=ndvi, area_ha=row["area_ha"], crop=row["crop"],
-        district=row["district"], season=row["season"],
-    )
-
-
 def _load_dataset() -> pd.DataFrame:
+    """Read the training CSV, which `build_training_set.py` already wrote in
+    FEATURE_COLUMNS form via `build_feature_row`.
+
+    Nothing is re-derived here. There was previously a second transformation at
+    this point, which meant three separate places built a feature row and only
+    two of them agreed — the drift that let whole-season totals be compared
+    against season-to-date ones at inference. Reading the columns straight
+    keeps `build_feature_row` the only implementation.
+    """
     raw = pd.read_csv(TRAINING_CSV)
-    feature_rows = [_row_to_features(row) for _, row in raw.iterrows()]
-    df = pd.DataFrame(feature_rows)
+    missing = [c for c in FEATURE_COLUMNS if c not in raw.columns]
+    if missing:
+        raise SystemExit(
+            f"Training CSV is missing {missing}. It predates the current feature set — "
+            "re-run `python -m scripts.build_training_set` to regenerate it."
+        )
+    df = raw[FEATURE_COLUMNS].copy()
     df["year"] = raw["year"].values
     df["yield_t_ha"] = raw["yield_t_ha"].values
     return df
@@ -205,7 +198,11 @@ def main() -> None:
     # --- Yield-vs-rainfall chart data (FR-63) --------------------------------
     chart_sample = df.sample(min(600, len(df)), random_state=42)
     chart_points = [
-        {"rainfall_cum_mm": r["rainfall_cum_mm"], "yield_t_ha": r["yield_t_ha"], "crop": r["crop"]}
+        {
+            "rainfall_mm_per_day": r["rainfall_mm_per_day"],
+            "yield_t_ha": r["yield_t_ha"],
+            "crop": r["crop"],
+        }
         for _, r in chart_sample.iterrows()
     ]
     with open(settings.model_dir / "yield_vs_rainfall.json", "w", encoding="utf-8") as f:

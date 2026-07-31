@@ -34,6 +34,7 @@ async def create_plan(
             budget_rs=payload.constraints.budget_rs,
             price_overrides=payload.price_overrides,
             fused_signals=fused,
+            risk_aversion=payload.risk_aversion,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc

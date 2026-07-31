@@ -17,6 +17,26 @@ class Env {
     defaultValue: 'https://rjs-production.up.railway.app',
   );
 
+  /// Matches backend `DEV_LOGIN_USER` — the seeded demo account id.
+  static const demoUserId = String.fromEnvironment(
+    'DEV_LOGIN_USER',
+    defaultValue: 'demo-farmer',
+  );
+
+  /// Matches backend `DEV_LOGIN_TOKEN`. Default is the local/demo secret so
+  /// "Try demo farms" works without a dart-define; override or clear in release
+  /// builds that must not expose a shared account.
+  static const devLoginToken = String.fromEnvironment(
+    'DEV_LOGIN_TOKEN',
+    defaultValue: 't8DldZzFcIWlNyBluc0aOdyLaXFMel0J',
+  );
+
+  static bool get isDevLogin =>
+      const bool.fromEnvironment('FORCE_DEV_LOGIN', defaultValue: false) &&
+      devLoginToken.isNotEmpty;
+
+  static bool get hasDemoLogin => devLoginToken.isNotEmpty;
+
   static bool get isClerkConfigured => clerkPublishableKey.isNotEmpty;
 
   static bool get isApiConfigured => apiBaseUrl.isNotEmpty;

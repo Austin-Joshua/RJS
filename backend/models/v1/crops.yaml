@@ -1,6 +1,22 @@
 # Agronomic reference config (TRD §7, §4). Values sourced from the TNAU Crop
 # Production Guide / ICAR package-of-practices ranges — config, not code, so a
 # judge can be pointed at the source per crop.
+#
+# The `rotation:` block on each crop feeds the quantum sequencing optimiser
+# (app/quantum/rotation.py). Three fields drive the season-to-season coupling:
+#
+#   family            which rotation-effect row/column this crop belongs to
+#   n_credit_kg_ha    fertiliser N the *following* crop can skip. Positive for
+#                     legumes (biological fixation exceeds residue removal),
+#                     slightly negative for heavy cereal feeders.
+#   seasons           seasons this crop can actually be sown in — a hard
+#                     feasibility gate, not a preference.
+#   ph_min / ph_max   pH *tolerance* — outside this the crop will not grow, so
+#                     it is a hard gate.
+#   ph_opt_min/max    pH *optimum* — inside tolerance but outside this, the crop
+#                     grows with a yield penalty, so it is a warning, not a
+#                     gate. These were previously conflated, which excluded four
+#                     of five crops at pH 7.8 — ordinary calcareous alluvium.
 paddy:
   name_en: Paddy (ADT-45)
   name_ta: "நெல் (ஏடிடி-45)"
@@ -14,6 +30,16 @@ paddy:
   cost_rs_per_ha: 38000
   water_m3_per_ha: 6500
   source: "TNAU Crop Production Guide — Paddy (ADT-45)"
+  rotation:
+    family: cereal
+    n_credit_kg_ha: -10
+    rotation_eligible: true
+    seasons: [kharif, rabi]
+    ph_min: 4.5
+    ph_max: 8.5
+    ph_opt_min: 5.5
+    ph_opt_max: 7.0
+    note: "Puddling degrades soil structure for a following upland crop."
 
 black_gram:
   name_en: Black gram
@@ -26,6 +52,16 @@ black_gram:
   cost_rs_per_ha: 14000
   water_m3_per_ha: 1800
   source: "TNAU Crop Production Guide — Pulses"
+  rotation:
+    family: legume
+    n_credit_kg_ha: 30
+    rotation_eligible: true
+    seasons: [rabi, summer]
+    ph_min: 5.5
+    ph_max: 8.0
+    ph_opt_min: 6.0
+    ph_opt_max: 7.5
+    note: "Short-duration pulse; standard rice-fallow break crop in the Cauvery delta."
 
 groundnut:
   name_en: Groundnut
@@ -38,6 +74,16 @@ groundnut:
   cost_rs_per_ha: 22000
   water_m3_per_ha: 3200
   source: "TNAU Crop Production Guide — Oilseeds"
+  rotation:
+    family: legume
+    n_credit_kg_ha: 40
+    rotation_eligible: true
+    seasons: [kharif, rabi, summer]
+    ph_min: 5.5
+    ph_max: 8.0
+    ph_opt_min: 6.0
+    ph_opt_max: 7.0
+    note: "Needs calcium at pegging; avoid strongly alkaline soils."
 
 sugarcane:
   name_en: Sugarcane
@@ -52,6 +98,20 @@ sugarcane:
   cost_rs_per_ha: 95000
   water_m3_per_ha: 18000
   source: "TNAU Crop Production Guide — Sugarcane"
+  rotation:
+    family: grass
+    n_credit_kg_ha: -25
+    # A 12-month crop occupies the land for the entire rotation cycle, so it
+    # cannot take one slot in a multi-season sequence. It stays available as a
+    # standalone annual choice in the feasibility list and is excluded from the
+    # sequencing optimiser — an agronomic fact, not a modelling shortcut.
+    rotation_eligible: false
+    rotation_excluded_reason: "12-month crop — occupies the land for a full rotation cycle"
+    seasons: [annual]
+    ph_min: 5.0
+    ph_max: 8.5
+    ph_opt_min: 6.0
+    ph_opt_max: 7.5
 
 maize:
   name_en: Maize
@@ -66,3 +126,12 @@ maize:
   cost_rs_per_ha: 32000
   water_m3_per_ha: 4500
   source: "TNAU Crop Production Guide — Maize"
+  rotation:
+    family: cereal
+    n_credit_kg_ha: -15
+    rotation_eligible: true
+    seasons: [kharif, rabi]
+    ph_min: 5.0
+    ph_max: 8.0
+    ph_opt_min: 5.8
+    ph_opt_max: 7.0

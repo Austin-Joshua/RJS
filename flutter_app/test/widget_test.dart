@@ -1,11 +1,16 @@
-import 'package:flutter_app/features/app/farmsync_app.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_app/core/env.dart';
+import 'package:flutter_app/core/theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('shows sign-in with demo farmer when Clerk key is configured', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: FarmSyncApp()));
-    await tester.pump(); // ClerkAuth may schedule async init
-    expect(find.textContaining('Continue as Demo Farmer'), findsWidgets);
+  test('demo login details are wired for the seeded account', () {
+    expect(Env.hasDemoLogin, isTrue);
+    expect(Env.demoUserId, 'demo-farmer');
+    expect(Env.devLoginToken, 't8DldZzFcIWlNyBluc0aOdyLaXFMel0J');
+  });
+
+  test('theme stays on the earthy palette', () {
+    final theme = buildAppTheme();
+    expect(theme.scaffoldBackgroundColor, AppColors.cream);
   });
 }

@@ -3,27 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth_token.dart';
+import '../../core/demo_session.dart';
 import '../../core/env.dart';
 import '../../core/theme.dart';
-import '../../data/repos/sync_worker.dart';
-import '../auth/demo_session.dart';
 import '../auth/sign_in_page.dart';
 import '../home/home_shell.dart';
 
+/// App root. Signed out shows Google / demo sign-in; signed in shows farms.
 class FarmSyncApp extends ConsumerWidget {
   const FarmSyncApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final demo = ref.watch(demoSessionProvider);
+    final demoSession = ref.watch(demoSessionProvider);
 
-    // Demo farmer bypass — no Clerk round-trip required for the pitch path.
-    if (demo) {
+    // Boot-time dart-define shortcut, or in-app "Open demo farms".
+    if (Env.isDevLogin || demoSession) {
       return MaterialApp(
-        title: 'FarmSync',
+        title: 'Crop Advisor',
         theme: buildAppTheme(),
         debugShowCheckedModeBanner: false,
-        home: const _BootstrappedHome(),
+        home: const _DemoHome(),
       );
     }
 
@@ -31,19 +31,19 @@ class FarmSyncApp extends ConsumerWidget {
       return MaterialApp(
         theme: buildAppTheme(),
         debugShowCheckedModeBanner: false,
-        home: const _MissingClerkKeyScreen(),
+        home: const _MissingConfigScreen(),
       );
     }
 
     return ClerkAuth(
       config: ClerkAuthConfig(publishableKey: Env.clerkPublishableKey),
       child: MaterialApp(
-        title: 'FarmSync',
+        title: 'Crop Advisor',
         theme: buildAppTheme(),
         debugShowCheckedModeBanner: false,
         home: ClerkErrorListener(
           child: ClerkAuthBuilder(
-            signedInBuilder: (context, authState) => const _ClerkTokenBinder(child: _BootstrappedHome()),
+            signedInBuilder: (context, authState) => const SessionTokenBinder(child: HomeShell()),
             signedOutBuilder: (context, authState) => const SignInPage(),
           ),
         ),
@@ -52,81 +52,139 @@ class FarmSyncApp extends ConsumerWidget {
   }
 }
 
-/// Pulls Clerk session JWT into [bearerTokenProvider] for FastAPI.
-class _ClerkTokenBinder extends ConsumerStatefulWidget {
-  const _ClerkTokenBinder({required this.child});
+/// Pushes the Clerk session JWT into [bearerTokenProvider] so the API client
+/// can authenticate.
+class SessionTokenBinder extends ConsumerStatefulWidget {
+  const SessionTokenBinder({super.key, required this.child});
 
   final Widget child;
 
   @override
-  ConsumerState<_ClerkTokenBinder> createState() => _ClerkTokenBinderState();
+  ConsumerState<SessionTokenBinder> createState() => _SessionTokenBinderState();
 }
 
-class _ClerkTokenBinderState extends ConsumerState<_ClerkTokenBinder> {
+class _SessionTokenBinderState extends ConsumerState<SessionTokenBinder> {
+  bool _ready = false;
+  String? _error;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bind());
   }
 
-  Future<void> _refresh() async {
+  Future<void> _bind() async {
     try {
       final auth = ClerkAuth.of(context, listen: false);
       final token = await auth.sessionToken();
-      if (mounted) ref.read(bearerTokenProvider.notifier).setToken(token.jwt);
-    } catch (_) {
-      // Demo/API can still run with a missing Clerk token if using demo bearer.
+      if (!mounted) return;
+      ref.read(bearerTokenProvider.notifier).setToken(token.jwt);
+      setState(() => _ready = true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = '$e';
+          _ready = true;
+        });
+      }
     }
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    if (!_ready) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: AppColors.deepGreen)),
+      );
+    }
+    if (_error != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.lock_outline, size: 48, color: AppColors.terracotta),
+                const SizedBox(height: 16),
+                Text('Could not start your session',
+                    textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Text(_error!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.clay)),
+                const SizedBox(height: 20),
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _ready = false;
+                      _error = null;
+                    });
+                    _bind();
+                  },
+                  child: const Text('Try again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return widget.child;
+  }
 }
 
-class _BootstrappedHome extends ConsumerStatefulWidget {
-  const _BootstrappedHome();
+class _DemoHome extends ConsumerStatefulWidget {
+  const _DemoHome();
 
   @override
-  ConsumerState<_BootstrappedHome> createState() => _BootstrappedHomeState();
+  ConsumerState<_DemoHome> createState() => _DemoHomeState();
 }
 
-class _BootstrappedHomeState extends ConsumerState<_BootstrappedHome> {
+class _DemoHomeState extends ConsumerState<_DemoHome> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(syncWorkerProvider).flush();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(bearerTokenProvider) == null) {
+        ref.read(bearerTokenProvider.notifier).setToken(Env.devLoginToken);
+      }
     });
   }
 
   @override
-  Widget build(BuildContext context) => const HomeShell();
+  Widget build(BuildContext context) {
+    return Banner(
+      message: 'DEMO',
+      location: BannerLocation.topEnd,
+      color: AppColors.terracotta,
+      child: const HomeShell(demoMode: true),
+    );
+  }
 }
 
-class _MissingClerkKeyScreen extends ConsumerWidget {
-  const _MissingClerkKeyScreen();
+class _MissingConfigScreen extends StatelessWidget {
+  const _MissingConfigScreen();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Icon(Icons.settings_outlined, size: 48, color: AppColors.clay),
+              const SizedBox(height: 16),
               Text(
                 'Missing CLERK_PUBLISHABLE_KEY.\n\n'
-                'Use demo mode, or run with:\n'
-                'flutter run --dart-define=CLERK_PUBLISHABLE_KEY=pk_...\n'
-                '--dart-define=API_BASE_URL=https://your-app.up.railway.app',
+                'Run with:\n'
+                'flutter run \\\n'
+                '  --dart-define=CLERK_PUBLISHABLE_KEY=pk_... \\\n'
+                '  --dart-define=API_BASE_URL=https://your-api',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => ref.read(demoSessionProvider.notifier).enter(),
-                child: const Text('Continue as Demo Farmer'),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
           ),

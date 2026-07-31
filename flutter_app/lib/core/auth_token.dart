@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Mutable bearer token used by [ApiClient]. Demo mode sets `demo-farmer`;
+/// Mutable bearer token used by [ApiClient]. Holds the Clerk session JWT;
 /// Clerk signed-in path sets the session JWT.
 class BearerTokenNotifier extends Notifier<String?> {
   @override

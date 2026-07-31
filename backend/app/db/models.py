@@ -57,6 +57,17 @@ class Field(Base):
     farmer: Mapped[Farmer] = relationship(back_populates="fields")
     plots: Mapped[list["Plot"]] = relationship(back_populates="field", cascade="all, delete-orphan")
     raster_assets: Mapped[list["RasterAsset"]] = relationship(back_populates="field", cascade="all, delete-orphan")
+    # Without this cascade, deleting a field that has ever been planned raises
+    # a ForeignKeyViolation on `plans.field_id` (FR-14). SQLite leaves foreign
+    # keys unenforced by default, so the test suite and local dev never saw it
+    # — it only surfaces on the Supabase/Railway Postgres, i.e. in the demo.
+    plans: Mapped[list["Plan"]] = relationship(back_populates="field", cascade="all, delete-orphan")
+    soil_cards: Mapped[list["SoilCard"]] = relationship(
+        back_populates="field", cascade="all, delete-orphan", order_by="SoilCard.version.desc()"
+    )
+    rotation_plans: Mapped[list["RotationPlan"]] = relationship(
+        back_populates="field", cascade="all, delete-orphan", order_by="RotationPlan.version.desc()"
+    )
 
 
 class Plot(Base):
@@ -142,6 +153,7 @@ class Plan(Base):
     net_value_p90: Mapped[float] = mapped_column(Float)
     constraints: Mapped[dict] = mapped_column(JSON)
 
+    field: Mapped[Field] = relationship(back_populates="plans")
     assignments: Mapped[list["Assignment"]] = relationship(back_populates="plan", cascade="all, delete-orphan")
     advisory: Mapped["Advisory"] = relationship(back_populates="plan", uselist=False, cascade="all, delete-orphan")
 
@@ -171,3 +183,62 @@ class Advisory(Base):
     why: Mapped[dict] = mapped_column(JSON)
 
     plan: Mapped[Plan] = relationship(back_populates="advisory")
+
+
+class SoilCard(Base):
+    """One farmer-entered soil reading set and its classification (brief §2.2-2.3).
+
+    Append-only rather than a column on Field: the brief asks for measurement
+    *history* per farm, and a farmer re-testing soil after applying amendments
+    is the case that makes this product worth using twice.
+    """
+
+    __tablename__ = "soil_cards"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    field_id: Mapped[str] = mapped_column(ForeignKey("fields.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    # Explicit 1-based counter per farm. Ordering on `created_at` alone is not
+    # safe: the Windows clock granularity is ~15 ms, so two cards saved in quick
+    # succession share a timestamp and "latest" becomes arbitrary. It also reads
+    # better to the farmer as "soil test #3" than as a timestamp.
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    soil_type: Mapped[str] = mapped_column(String)
+    readings: Mapped[dict] = mapped_column(JSON)  # exactly what the farmer typed
+    classes: Mapped[dict] = mapped_column(JSON)  # ICAR low/medium/high per nutrient
+    card: Mapped[dict] = mapped_column(JSON)  # full rendered card incl. pH/EC/water
+
+    field: Mapped[Field] = relationship(back_populates="soil_cards")
+
+
+class RotationPlan(Base):
+    """A quantum-ranked crop sequence for one farm (brief §2.5).
+
+    Separate from `Plan` because the shapes genuinely differ: `Plan` assigns
+    crops to plots simultaneously, this orders crops across seasons. Sharing one
+    table would mean a nullable column for whichever half didn't apply.
+    """
+
+    __tablename__ = "rotation_plans"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    field_id: Mapped[str] = mapped_column(ForeignKey("fields.id"))
+    soil_card_id: Mapped[str | None] = mapped_column(ForeignKey("soil_cards.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    version: Mapped[int] = mapped_column(Integer, default=1)  # see SoilCard.version
+
+    solver: Mapped[str] = mapped_column(String)  # sparq_rotation | classical_exact
+    seasons: Mapped[dict] = mapped_column(JSON)
+    sequence: Mapped[dict] = mapped_column(JSON)  # ordered crop codes
+    ranked_crops: Mapped[dict] = mapped_column(JSON)  # per-rank detail for the UI
+    total_value_rs: Mapped[float] = mapped_column(Float)
+    matched_exact_optimum: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    feasibility: Mapped[dict] = mapped_column(JSON)  # feasible + excluded, with reasons
+    baselines: Mapped[dict] = mapped_column(JSON)  # sort / greedy comparison
+    quantum: Mapped[dict] = mapped_column(JSON)  # circuit, measurements, convergence
+    rotation_model: Mapped[dict] = mapped_column(JSON)  # coefficients actually used
+    advisory: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    field: Mapped[Field] = relationship(back_populates="rotation_plans")

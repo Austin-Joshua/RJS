@@ -21,6 +21,8 @@ from typing import Any
 
 import numpy as np
 
+from app.adapters.ndvi_gee import NDVI_PALETTE_HEX, NDVI_VIS_MAX, NDVI_VIS_MIN
+
 
 def _band_stats(arr: np.ndarray) -> dict[str, float]:
     flat = arr.astype(np.float64).ravel()
@@ -58,21 +60,23 @@ def analyze_geotiff(content: bytes) -> dict[str, Any]:
 
 
 def _normalize_flat_values(values: list[float], scale: str) -> tuple[list[float], str]:
-    """Map raw pixel values onto NDVI's [-1, 1] range.
+    """Map raw pixel values onto NDVI units used by the colour ramp.
 
-    scale: "auto" infers from the data range (prefers -1..1, else 0..1, else
-    0..255 byte); or force one of "minus1_1" | "zero_one" | "byte255".
+    NDVI is already in roughly [-1, 1] (vegetation usually 0..0.9). A raster
+    stored as 0..1 is still NDVI — do **not** remap with `2x-1`, or healthy
+    canopy (~0.6) is pulled toward yellow/red and the stress colour looks wrong.
+
+    scale: "auto" | "minus1_1" | "zero_one" | "byte255"
     """
     if not values:
         return [], scale
     arr_max, arr_min = max(values), min(values)
     if scale == "auto":
-        if -1.05 <= arr_min and arr_max <= 1.05:
-            scale = "minus1_1"
-        elif arr_min >= 0 and arr_max <= 1.0:
-            scale = "zero_one"
-        elif arr_min >= 0 and arr_max <= 255.0:
+        if arr_min >= 0 and arr_max <= 255.0 and arr_max > 1.05:
             scale = "byte255"
+        elif -1.05 <= arr_min and arr_max <= 1.05:
+            # Covers both classic [-1,1] and vegetation [0,1] NDVI.
+            scale = "minus1_1"
         else:
             scale = "minus1_1"
 
@@ -80,11 +84,13 @@ def _normalize_flat_values(values: list[float], scale: str) -> tuple[list[float]
     for x in values:
         if not math.isfinite(x):
             continue
-        if scale == "zero_one":
-            out.append(2.0 * max(0.0, min(1.0, float(x))) - 1.0)
-        elif scale == "byte255":
-            out.append((max(0.0, min(255.0, float(x))) / 255.0) * 2.0 - 1.0)
-        else:  # minus1_1 (also the fallback for an unrecognized scale)
+        if scale == "byte255":
+            # Byte-encoded NDVI → 0..1 (bare → vigorous). Keep low values red.
+            out.append(max(0.0, min(1.0, float(x) / 255.0)))
+        elif scale == "zero_one":
+            # Explicit 0..1 NDVI — pass through (same units as the vis stretch).
+            out.append(max(0.0, min(1.0, float(x))))
+        else:  # minus1_1
             out.append(max(-1.0, min(1.0, float(x))))
     return out, scale
 
@@ -166,14 +172,29 @@ def _ndvi_array_to_minus1_1(arr: np.ndarray, scale_mode: str) -> np.ndarray:
 
 
 def _rgba_ndvi(ndvi: np.ndarray) -> np.ndarray:
-    """ndvi in [-1, 1], NaN outside the mask -> HxWx4 uint8 (red-green ramp,
-    matching the existing GEE overlay in app/adapters/ndvi_gee.py getThumbURL vis_params)."""
-    v = np.clip((ndvi + 1.0) / 2.0, 0.0, 1.0)
-    r = np.where(np.isfinite(ndvi), (255 * (1.0 - v)).astype(np.uint8), 0)
-    g = np.where(np.isfinite(ndvi), (255 * v).astype(np.uint8), 0)
-    b = np.full_like(r, 40, dtype=np.uint8)
-    a = np.where(np.isfinite(ndvi), 245, 0).astype(np.uint8)
-    return np.stack([r, g, b, a], axis=-1)
+    """ndvi in [-1, 1], NaN outside the mask -> HxWx4 uint8.
+
+    Uses the same stretch and the same three palette anchors as the Sentinel-2
+    overlay (app/adapters/ndvi_gee.py), so one NDVI value is one colour no matter
+    which source rendered it. Values below NDVI_VIS_MIN clamp to full red rather
+    than occupying half the ramp.
+    """
+    anchors = np.array(
+        [[int(h[i : i + 2], 16) for i in (0, 2, 4)] for h in NDVI_PALETTE_HEX],
+        dtype=np.float64,
+    )
+    finite = np.isfinite(ndvi)
+    t = np.clip(
+        (np.where(finite, ndvi, NDVI_VIS_MIN) - NDVI_VIS_MIN) / (NDVI_VIS_MAX - NDVI_VIS_MIN),
+        0.0,
+        1.0,
+    )
+    # Piecewise-linear through the anchors: t=0 -> red, 0.5 -> yellow, 1 -> green.
+    stops = np.linspace(0.0, 1.0, len(anchors))
+    rgb = np.stack([np.interp(t, stops, anchors[:, c]) for c in range(3)], axis=-1)
+    rgb = np.where(finite[..., None], rgb, 0.0).astype(np.uint8)
+    a = np.where(finite, 245, 0).astype(np.uint8)
+    return np.concatenate([rgb, a[..., None]], axis=-1)
 
 
 def _mask_to_boundary(
