@@ -175,14 +175,32 @@ class _QuantumLabScreenState extends ConsumerState<QuantumLabScreen> {
                   Text('Farm', style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
                   DropdownButtonFormField<String>(
                     key: ValueKey(selectedId),
+                    isExpanded: true,
                     initialValue: list.any((f) => f.id == selectedId) ? selectedId : list.first.id,
-                    decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    selectedItemBuilder: (context) => [
+                      for (final f in list)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '${f.name} · ${f.areaHa.toStringAsFixed(1)} ha',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.bodyMedium,
+                          ),
+                        ),
+                    ],
                     items: [
                       for (final f in list)
                         DropdownMenuItem(
                           value: f.id,
                           child: Text(
                             '${f.name} · ${f.areaHa.toStringAsFixed(1)} ha',
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
