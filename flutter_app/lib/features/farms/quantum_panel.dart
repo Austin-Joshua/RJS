@@ -164,8 +164,10 @@ class _WhyNotSort extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 92,
+            width: 72,
             child: Text(label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: textTheme.bodySmall?.copyWith(
                     color: AppColors.clay, fontWeight: best ? FontWeight.w700 : FontWeight.w400)),
           ),
@@ -175,6 +177,7 @@ class _WhyNotSort extends StatelessWidget {
                     fontWeight: best ? FontWeight.w700 : FontWeight.w400,
                     color: best ? AppColors.deepGreen : AppColors.soilBrown)),
           ),
+          const SizedBox(width: 6),
           Text(formatRs(value),
               style: textTheme.bodySmall?.copyWith(
                   fontWeight: best ? FontWeight.w700 : FontWeight.w400,

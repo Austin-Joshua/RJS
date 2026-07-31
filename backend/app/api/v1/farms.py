@@ -302,13 +302,28 @@ async def rank_crops(
             fused_signals=fused,
             candidate_crops=payload.candidate_crops,
             price_overrides=payload.price_overrides,
+            water_available_m3=payload.water_available_m3,
+            budget_rs=payload.budget_rs,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
+    # Echo the survival-slider inputs so the Quantum Lab can label the run.
+    result["scenario"] = {
+        "water_available_m3": payload.water_available_m3
+        if payload.water_available_m3 is not None
+        else (card.card.get("water") or {}).get("available_m3"),
+        "budget_rs": payload.budget_rs,
+        "persisted": bool(payload.persist and result.get("ranking") is not None),
+    }
+
     if result.get("ranking") is None:
+        return result
+
+    # Slider what-if: recompute live without flooding rotation_plan history.
+    if not payload.persist:
         return result
 
     advisory = result.get("advisory")

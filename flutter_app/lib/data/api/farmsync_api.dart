@@ -80,8 +80,21 @@ class FarmSyncApi {
 
   /// Runs the quantum sequencer for this farm (§2.5). Recomputed per farm on
   /// every call — never reused from another farm.
-  Future<RankResultOut> rankCrops(String farmId) async {
-    final r = await _client.post<Map<String, dynamic>>('/farms/$farmId/rank', data: const {});
+  ///
+  /// [waterAvailableM3] / [budgetRs] are survival-slider overrides. Set
+  /// [persist] false for what-if runs so they do not write a new plan row.
+  Future<RankResultOut> rankCrops(
+    String farmId, {
+    double? waterAvailableM3,
+    double? budgetRs,
+    bool persist = true,
+  }) async {
+    final data = <String, dynamic>{
+      'persist': persist,
+      if (waterAvailableM3 != null) 'water_available_m3': waterAvailableM3,
+      if (budgetRs != null) 'budget_rs': budgetRs,
+    };
+    final r = await _client.post<Map<String, dynamic>>('/farms/$farmId/rank', data: data);
     return RankResultOut.fromJson(r.data!);
   }
 

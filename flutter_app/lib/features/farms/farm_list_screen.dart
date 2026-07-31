@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/glass.dart';
 import '../../data/models/farm_models.dart';
 import '../../data/repos/farm_repo.dart';
 import 'add_farm_screen.dart';
@@ -85,68 +86,62 @@ class _FarmCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final card = farm.soilCard;
 
-    return Card(
+    return GlassPanel(
       margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Expanded(child: Text(farm.name, style: textTheme.titleMedium)),
-                  Text('${farm.areaHa.toStringAsFixed(2)} ha',
-                      style: textTheme.bodyMedium?.copyWith(color: AppColors.clay)),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text('${farm.district}, ${farm.state}',
-                  style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
-              if (card != null) ...[
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final e in card.classes.entries)
-                      if (e.key != 'oc_pct') NutrientChip(label: nutrientLabel(e.key), rating: e.value),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 10),
-              if (farm.isRanked)
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, size: 16, color: AppColors.deepGreen),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        farm.latestSequence.map(cropLabel).join(' → '),
-                        style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    if (farm.latestValueRs != null)
-                      Text(formatRs(farm.latestValueRs),
-                          style: textTheme.bodyMedium?.copyWith(color: AppColors.deepGreen)),
-                  ],
-                )
-              else
-                Row(
-                  children: [
-                    Icon(Icons.pending_outlined, size: 16, color: AppColors.terracotta.withValues(alpha: 0.8)),
-                    const SizedBox(width: 6),
-                    Text(
-                      farm.hasSoilCard ? 'Tap to rank crops' : 'Add soil readings to begin',
-                      style: textTheme.bodyMedium?.copyWith(color: AppColors.terracotta),
-                    ),
-                  ],
-                ),
+              Expanded(child: Text(farm.name, style: textTheme.titleMedium)),
+              Text('${farm.areaHa.toStringAsFixed(2)} ha',
+                  style: textTheme.bodyMedium?.copyWith(color: AppColors.clay)),
             ],
           ),
-        ),
+          const SizedBox(height: 2),
+          Text('${farm.district}, ${farm.state}',
+              style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
+          if (card != null) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final e in card.classes.entries)
+                  if (e.key != 'oc_pct') NutrientChip(label: nutrientLabel(e.key), rating: e.value),
+              ],
+            ),
+          ],
+          const SizedBox(height: 10),
+          if (farm.isRanked)
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome, size: 16, color: AppColors.deepGreen),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    farm.latestSequence.map(cropLabel).join(' → '),
+                    style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (farm.latestValueRs != null)
+                  Text(formatRs(farm.latestValueRs),
+                      style: textTheme.bodyMedium?.copyWith(color: AppColors.deepGreen)),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Icon(Icons.pending_outlined, size: 16, color: AppColors.terracotta.withValues(alpha: 0.8)),
+                const SizedBox(width: 6),
+                Text(
+                  farm.hasSoilCard ? 'Tap to rank crops' : 'Add soil readings to begin',
+                  style: textTheme.bodyMedium?.copyWith(color: AppColors.terracotta),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

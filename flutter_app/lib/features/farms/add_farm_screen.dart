@@ -7,8 +7,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/glass.dart';
 import '../../data/models/farm_models.dart';
 import '../../data/repos/farm_repo.dart';
+import 'plan_timeline.dart';
 import 'soil_card_ocr.dart';
 import 'soil_card_view.dart';
 
@@ -35,12 +37,11 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
   final _ph = TextEditingController();
   final _oc = TextEditingController();
   final _ec = TextEditingController();
-  final _water = TextEditingController();
-
   final _picker = ImagePicker();
   final _ocr = SoilCardOcrScanner();
 
   String _soilType = 'alluvial';
+  double _waterM3 = 8000;
   bool _saving = false;
   bool _locating = false;
   bool _scanning = false;
@@ -50,7 +51,7 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _area, _lat, _lon, _n, _p, _k, _ph, _oc, _ec, _water]) {
+    for (final c in [_name, _area, _lat, _lon, _n, _p, _k, _ph, _oc, _ec]) {
       c.dispose();
     }
     _ocr.dispose();
@@ -188,7 +189,7 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
               ph: double.parse(_ph.text.trim()),
               ocPct: _num(_oc),
               ecDsM: _num(_ec),
-              waterAvailableM3: _num(_water),
+              waterAvailableM3: _waterM3,
             ),
           );
       if (!mounted) return;
@@ -228,13 +229,15 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Add farm')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-          children: [
+    return AtmosphereBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(title: const Text('Add farm')),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+            children: [
             Text('How do you want to add soil readings?', style: textTheme.titleMedium),
             const SizedBox(height: 10),
             _ScanCard(
@@ -296,7 +299,11 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
             _field(_ph, 'Soil pH', keyboard: true, required: true, min: 0, max: 14),
             _field(_oc, 'Organic carbon (%)  — optional', keyboard: true, min: 0, max: 10),
             _field(_ec, 'Salinity EC (dS/m)  — optional', keyboard: true, min: 0, max: 50),
-            _field(_water, 'Irrigation water for the season (m³)  — optional', keyboard: true, min: 0),
+            const SizedBox(height: 4),
+            WaterSliderCard(
+              valueM3: _waterM3,
+              onChanged: (v) => setState(() => _waterM3 = v),
+            ),
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: textTheme.bodyMedium?.copyWith(color: AppColors.terracotta)),
@@ -313,7 +320,8 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
                 label: Text(_saving ? 'Saving…' : 'Save and see my soil card'),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

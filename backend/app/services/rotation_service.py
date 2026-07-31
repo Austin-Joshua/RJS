@@ -14,6 +14,7 @@ The division of labour the brief asks for, kept sharp:
 Everything is scoped to a single `field_id`. Nothing is cached across farms or
 users — each call rebuilds from that farm's own soil card (brief §4).
 """
+import copy
 import time
 import uuid
 from typing import Any
@@ -104,6 +105,25 @@ def _sequence_label(ctx: RotationContext):
     return label
 
 
+def _apply_scenario_overrides(
+    soil_card: dict[str, Any],
+    *,
+    area_ha: float,
+    water_available_m3: float | None,
+) -> dict[str, Any]:
+    """Patch water onto a copy of the soil card for slider what-if runs."""
+    if water_available_m3 is None:
+        return soil_card
+    card = copy.deepcopy(soil_card)
+    water = dict(card.get("water") or {})
+    water["available_m3"] = float(water_available_m3)
+    if area_ha > 0:
+        water["per_ha_m3"] = round(float(water_available_m3) / area_ha, 1)
+    water["scenario"] = True
+    card["water"] = water
+    return card
+
+
 async def rank_crops_for_field(
     *,
     field,
@@ -111,6 +131,8 @@ async def rank_crops_for_field(
     fused_signals: dict[str, Any],
     candidate_crops: list[str] | None = None,
     price_overrides: dict[str, float] | None = None,
+    water_available_m3: float | None = None,
+    budget_rs: float | None = None,
 ) -> dict[str, Any]:
     """Full pipeline for one farm: feasible crops → quantum-ranked rotation."""
     import asyncio
@@ -121,10 +143,18 @@ async def rank_crops_for_field(
     price_overrides = price_overrides or {}
     timings: dict[str, float] = {}
     area_ha = field.area_ha
+    soil_card = _apply_scenario_overrides(
+        soil_card, area_ha=area_ha, water_available_m3=water_available_m3
+    )
 
     # --- Step 1 (classical): agronomic feasibility gates -------------------
     t0 = time.monotonic()
-    gates = shortlist(soil_card=soil_card, area_ha=area_ha, candidate_crops=candidate_crops)
+    gates = shortlist(
+        soil_card=soil_card,
+        area_ha=area_ha,
+        candidate_crops=candidate_crops,
+        budget_rs=budget_rs,
+    )
     timings["feasibility_ms"] = round((time.monotonic() - t0) * 1000, 1)
 
     rotation_candidates = gates["rotation_candidates"]

@@ -6,8 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/demo_session.dart';
 import '../../core/env.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/glass.dart';
 
 /// Google Sign-In plus an optional seeded demo account (brief §2.1).
+///
+/// Brand sits on the atmospheric background; Clerk lives only inside a
+/// compact glass card — never stretched across the whole scaffold.
 class SignInPage extends ConsumerWidget {
   const SignInPage({super.key});
 
@@ -15,63 +19,81 @@ class SignInPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppColors.clay.withValues(alpha: 0.45), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.soilBrown.withValues(alpha: 0.08),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
+    return AtmosphereBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.eco, size: 48, color: AppColors.deepGreen),
+                    const Icon(Icons.eco, size: 56, color: AppColors.deepGreen),
                     const SizedBox(height: 12),
                     Text('Crop Advisor', textAlign: TextAlign.center, style: textTheme.displayMedium),
                     const SizedBox(height: 8),
                     Text(
-                      'See what your land can grow, and the crop order that earns the most this year.',
+                      'Crop plans ordered by what will earn you the most.',
                       textAlign: TextAlign.center,
                       style: textTheme.bodyMedium?.copyWith(color: AppColors.clay),
                     ),
-                    const SizedBox(height: 22),
-                    const Divider(height: 1),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 280,
-                      child: ClipRect(
-                        child: ClerkErrorListener(child: ClerkAuthentication()),
-                      ),
-                    ),
-                    if (Env.hasDemoLogin) ...[
-                      const SizedBox(height: 8),
-                      Row(
+                    const SizedBox(height: 28),
+
+                    // Clerk only — contained card, not the whole page.
+                    GlassPanel(
+                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Expanded(child: Divider()),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('or try the demo',
-                                style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
+                          Text(
+                            'Sign in',
+                            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                           ),
-                          const Expanded(child: Divider()),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Continue with Google. Your farms stay private to your account.',
+                            style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            height: 220,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.clay.withValues(alpha: 0.22)),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: const Material(
+                              color: Colors.transparent,
+                              child: ClerkErrorListener(
+                                child: SingleChildScrollView(
+                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  child: ClerkAuthentication(),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                    ),
+
+                    if (Env.hasDemoLogin) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(child: Divider(color: AppColors.clay.withValues(alpha: 0.35))),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('or', style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
+                          ),
+                          Expanded(child: Divider(color: AppColors.clay.withValues(alpha: 0.35))),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       _DemoCredentialsBox(
                         onContinue: () => ref.read(demoSessionProvider.notifier).start(),
                       ),
@@ -95,27 +117,20 @@ class _DemoCredentialsBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cream,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.deepGreen.withValues(alpha: 0.35)),
-      ),
+    return GlassPanel(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Demo farms (pre-loaded)',
-              style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+          Text('Demo farms', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text(
-            'Three Thanjavur farms with soil cards and crop rankings already filled in.',
+            'Three Thanjavur farms already ranked — no Google needed.',
             style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
           ),
           const SizedBox(height: 12),
           _CredRow(label: 'Account', value: Env.demoUserId),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           _CredRow(label: 'Token', value: Env.devLoginToken, mono: true),
           const SizedBox(height: 14),
           SizedBox(
@@ -143,19 +158,21 @@ class _CredRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 72,
+          width: 64,
           child: Text(label, style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
         ),
         Expanded(
           child: SelectableText(
             value,
+            maxLines: 1,
             style: textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w600,
               fontFamily: mono ? 'monospace' : null,
+              fontSize: mono ? 11 : null,
               color: AppColors.soilBrown,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ),

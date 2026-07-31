@@ -71,7 +71,13 @@ class CropVerdict:
         }
 
 
-def assess_crop(crop: str, *, soil_card: dict[str, Any], area_ha: float) -> CropVerdict:
+def assess_crop(
+    crop: str,
+    *,
+    soil_card: dict[str, Any],
+    area_ha: float,
+    budget_rs: float | None = None,
+) -> CropVerdict:
     """Run every agronomic gate for one crop against one farm's soil card."""
     crops = load_crops()
     cfg = crops.get(crop, {})
@@ -132,6 +138,16 @@ def assess_crop(crop: str, *, soil_card: dict[str, Any], area_ha: float) -> Crop
             if water_required > available * 0.8:
                 warnings.append("Water requirement uses over 80% of the season's supply — little margin.")
 
+    # --- Budget: season cash for inputs must cover this crop's package cost
+    cost_rs = float(cfg.get("cost_rs_per_ha", 0.0)) * area_ha
+    if budget_rs is not None:
+        if cost_rs > budget_rs:
+            failures.append(
+                f"Needs ~₹{cost_rs:,.0f} in seed/fertiliser/labour but budget is only ₹{budget_rs:,.0f}."
+            )
+        else:
+            passes.append(f"Input cost ~₹{cost_rs:,.0f} fits the ₹{budget_rs:,.0f} budget.")
+
     # --- Drainage / texture
     soil_type = soil_card.get("soil_type", "loam")
     type_name = SOIL_TYPES.get(soil_type, {}).get("name_en", soil_type)
@@ -172,7 +188,13 @@ def assess_crop(crop: str, *, soil_card: dict[str, Any], area_ha: float) -> Crop
     )
 
 
-def shortlist(*, soil_card: dict[str, Any], area_ha: float, candidate_crops: list[str] | None = None) -> dict[str, Any]:
+def shortlist(
+    *,
+    soil_card: dict[str, Any],
+    area_ha: float,
+    candidate_crops: list[str] | None = None,
+    budget_rs: float | None = None,
+) -> dict[str, Any]:
     """Split the crop catalogue into feasible and excluded, with reasons for both.
 
     Returns both halves rather than only the survivors: "why can't I grow X?" is
@@ -180,7 +202,9 @@ def shortlist(*, soil_card: dict[str, Any], area_ha: float, candidate_crops: lis
     would leave the farmer guessing.
     """
     crops = candidate_crops or list(load_crops().keys())
-    verdicts = [assess_crop(c, soil_card=soil_card, area_ha=area_ha) for c in crops]
+    verdicts = [
+        assess_crop(c, soil_card=soil_card, area_ha=area_ha, budget_rs=budget_rs) for c in crops
+    ]
 
     feasible = [v for v in verdicts if v.feasible]
     excluded = [v for v in verdicts if not v.feasible]

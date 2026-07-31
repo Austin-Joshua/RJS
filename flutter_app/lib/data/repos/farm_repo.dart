@@ -38,7 +38,18 @@ class FarmRepository {
 
   Future<FeasibilityOut> feasibleCrops(String farmId) => _api.feasibleCrops(farmId);
 
-  Future<RankResultOut> rank(String farmId) => _api.rankCrops(farmId);
+  Future<RankResultOut> rank(
+    String farmId, {
+    double? waterAvailableM3,
+    double? budgetRs,
+    bool persist = true,
+  }) =>
+      _api.rankCrops(
+        farmId,
+        waterAvailableM3: waterAvailableM3,
+        budgetRs: budgetRs,
+        persist: persist,
+      );
 
   /// Last saved ranking, or null when this farm has never been ranked.
   Future<RankResultOut?> latestRanking(String farmId) async {

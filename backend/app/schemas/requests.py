@@ -82,12 +82,27 @@ class FarmCreateRequest(BaseModel):
 
 
 class RankCropsRequest(BaseModel):
-    """Run the feasibility filter and the quantum sequencer for one farm (§2.4-2.5)."""
+    """Run the feasibility filter and the quantum sequencer for one farm (§2.4-2.5).
+
+    `water_available_m3` / `budget_rs` are scenario overrides for the survival
+    sliders: drop water and paddy fails the gate; drop budget and high-cost
+    crops drop out — then QAOA re-sequences what remains.
+    """
 
     candidate_crops: list[str] | None = Field(
         None, description="Defaults to the full crop catalogue; the feasibility gates filter it."
     )
     price_overrides: dict[str, float] | None = None
+    water_available_m3: float | None = Field(
+        None, ge=0, description="Scenario override: irrigation water for the season (m³)"
+    )
+    budget_rs: float | None = Field(
+        None, ge=0, description="Scenario override: cash available for crop inputs (₹)"
+    )
+    persist: bool = Field(
+        True,
+        description="False for slider what-if runs — recompute without writing a new rotation_plan row.",
+    )
 
 
 class PlanRequest(BaseModel):

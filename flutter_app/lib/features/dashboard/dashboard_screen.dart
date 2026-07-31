@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets/glass.dart';
 import '../../data/models/farm_models.dart';
 import '../../data/repos/farm_repo.dart';
 import '../farms/farm_detail_screen.dart';
@@ -62,27 +63,24 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   if (d.farmsRanked > 0)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Expected earnings this year (ranked farms)',
-                                style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
-                            const SizedBox(height: 4),
-                            Text(formatRs(d.combinedValueRs),
-                                style: textTheme.displayMedium?.copyWith(color: AppColors.deepGreen)),
-                            if (d.farmsAwaiting > 0)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  '${d.farmsAwaiting} farm${d.farmsAwaiting == 1 ? '' : 's'} still need a crop ranking.',
-                                  style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
-                                ),
+                    GlassPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Expected earnings this year (ranked farms)',
+                              style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
+                          const SizedBox(height: 4),
+                          Text(formatRs(d.combinedValueRs),
+                              style: textTheme.displayMedium?.copyWith(color: AppColors.deepGreen)),
+                          if (d.farmsAwaiting > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                '${d.farmsAwaiting} farm${d.farmsAwaiting == 1 ? '' : 's'} still need a crop ranking.',
+                                style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
                     ),
                   if (d.landVariables.isNotEmpty) ...[
@@ -144,60 +142,56 @@ class _QuantumDashCard extends StatelessWidget {
     final feasPct = ((q.avgFeasibleRate ?? 0) * 100).clamp(0, 100);
     final simplexPct = ((q.avgSimplexRate ?? 0) * 100).clamp(0, 100);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(q.plainSummary, style: textTheme.bodyMedium),
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(q.plainSummary, style: textTheme.bodyMedium),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _QMetric(
+                label: 'Valid order rate',
+                value: q.avgFeasibleRate == null ? '—' : '${feasPct.toStringAsFixed(0)}%',
+                hint: 'How often the algorithm found a legal crop order',
+              ),
+              _QMetric(
+                label: 'One crop / season',
+                value: q.avgSimplexRate == null ? '—' : '${simplexPct.toStringAsFixed(0)}%',
+                hint: 'Built into the quantum circuit',
+              ),
+              _QMetric(
+                label: 'Beat simple sort',
+                value: '${q.beatsSimpleSortCount}/${q.farmsOptimised}',
+                hint: q.extraValueVsSortRs > 0
+                    ? 'Extra ${formatRs(q.extraValueVsSortRs)} vs sorting by profit'
+                    : 'Times quantum order won more money',
+              ),
+            ],
+          ),
+          if (q.avgFeasibleRate != null) ...[
             const SizedBox(height: 14),
-            Row(
-              children: [
-                _QMetric(
-                  label: 'Valid order rate',
-                  value: q.avgFeasibleRate == null ? '—' : '${feasPct.toStringAsFixed(0)}%',
-                  hint: 'How often the algorithm found a legal crop order',
-                ),
-                _QMetric(
-                  label: 'One crop / season',
-                  value: q.avgSimplexRate == null ? '—' : '${simplexPct.toStringAsFixed(0)}%',
-                  hint: 'Built into the quantum circuit',
-                ),
-                _QMetric(
-                  label: 'Beat simple sort',
-                  value: '${q.beatsSimpleSortCount}/${q.farmsOptimised}',
-                  hint: q.extraValueVsSortRs > 0
-                      ? 'Extra ${formatRs(q.extraValueVsSortRs)} vs sorting by profit'
-                      : 'Times quantum order won more money',
-                ),
-              ],
+            Text('Optimisation quality', style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: (q.avgFeasibleRate ?? 0).clamp(0.0, 1.0),
+                minHeight: 10,
+                backgroundColor: AppColors.clay.withValues(alpha: 0.18),
+                valueColor: const AlwaysStoppedAnimation(AppColors.deepGreen),
+              ),
             ),
-            if (q.avgFeasibleRate != null) ...[
-              const SizedBox(height: 14),
-              Text('Optimisation quality',
-                  style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: (q.avgFeasibleRate ?? 0).clamp(0.0, 1.0),
-                  minHeight: 10,
-                  backgroundColor: AppColors.clay.withValues(alpha: 0.18),
-                  valueColor: const AlwaysStoppedAnimation(AppColors.deepGreen),
+            if (q.avgWallTimeS != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Average run time ${q.avgWallTimeS!.toStringAsFixed(1)} s',
+                  style: textTheme.bodySmall?.copyWith(color: AppColors.clay, fontSize: 12),
                 ),
               ),
-              if (q.avgWallTimeS != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Average run time ${q.avgWallTimeS!.toStringAsFixed(1)} s',
-                    style: textTheme.bodySmall?.copyWith(color: AppColors.clay, fontSize: 12),
-                  ),
-                ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -239,15 +233,14 @@ class _LandCompareChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final shown = rows.take(6).toList();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 200,
-              child: BarChart(
+    return GlassPanel(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 200,
+            child: BarChart(
                 BarChartData(
                   maxY: 1.05,
                   gridData: const FlGridData(show: false),
@@ -304,7 +297,6 @@ class _LandCompareChart extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -364,60 +356,54 @@ class _FarmRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return Card(
+    return GlassPanel(
       margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => FarmDetailScreen(farmId: row.farmId)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => FarmDetailScreen(farmId: row.farmId)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Expanded(child: Text(row.name, style: textTheme.titleMedium)),
-                  if (row.totalValueRs != null)
-                    Text(formatRs(row.totalValueRs),
-                        style: textTheme.bodyMedium?.copyWith(color: AppColors.deepGreen)),
-                ],
-              ),
-              Text('${row.district} · ${row.areaHa.toStringAsFixed(2)} ha',
-                  style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
-              if (row.soilSummary != null) ...[
-                const SizedBox(height: 6),
-                Text(row.soilSummary!, style: textTheme.bodySmall),
-              ],
-              if (row.sequenceNames.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text('Plant: ${row.sequenceNames.join(' → ')}',
-                    style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-              ],
-              if (row.issues.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final issue in row.issues)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.terracotta.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(issue,
-                            style: textTheme.bodySmall
-                                ?.copyWith(color: AppColors.terracotta, fontSize: 12)),
-                      ),
-                  ],
-                ),
-              ],
+              Expanded(child: Text(row.name, style: textTheme.titleMedium)),
+              if (row.totalValueRs != null)
+                Text(formatRs(row.totalValueRs),
+                    style: textTheme.bodyMedium?.copyWith(color: AppColors.deepGreen)),
             ],
           ),
-        ),
+          Text('${row.district} · ${row.areaHa.toStringAsFixed(2)} ha',
+              style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
+          if (row.soilSummary != null) ...[
+            const SizedBox(height: 6),
+            Text(row.soilSummary!, style: textTheme.bodySmall),
+          ],
+          if (row.sequenceNames.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('Plant: ${row.sequenceNames.join(' → ')}',
+                style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          ],
+          if (row.issues.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final issue in row.issues)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.terracotta.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(issue,
+                        style: textTheme.bodySmall
+                            ?.copyWith(color: AppColors.terracotta, fontSize: 12)),
+                  ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

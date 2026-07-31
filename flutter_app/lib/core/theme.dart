@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Earthy palette — deep crop greens, soil/clay browns, warm terracotta.
-/// No generic Material blues.
+/// Tuned for glassmorphic surfaces over a soft field gradient.
 class AppColors {
   const AppColors._();
 
@@ -10,6 +10,8 @@ class AppColors {
   static const soilBrown = Color(0xFF4A3527);
   static const cream = Color(0xFFF7F1E6);
   static const clay = Color(0xFF8B6F47);
+  static const mist = Color(0xFFE8F0E4);
+  static const water = Color(0xFF2F6F8F);
 }
 
 ThemeData buildAppTheme() {
@@ -36,31 +38,37 @@ ThemeData buildAppTheme() {
   return ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,
-    scaffoldBackgroundColor: AppColors.cream,
+    scaffoldBackgroundColor: Colors.transparent,
     textTheme: textTheme,
     primaryTextTheme: textTheme,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.deepGreen,
+    appBarTheme: AppBarTheme(
+      backgroundColor: AppColors.deepGreen.withValues(alpha: 0.92),
       foregroundColor: Colors.white,
-      titleTextStyle: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      titleTextStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.terracotta,
         foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       ),
     ),
     sliderTheme: SliderThemeData(
-      activeTrackColor: AppColors.deepGreen,
-      inactiveTrackColor: AppColors.clay.withValues(alpha: 0.35),
-      thumbColor: AppColors.terracotta,
-      overlayColor: AppColors.terracotta.withValues(alpha: 0.16),
+      activeTrackColor: AppColors.water,
+      inactiveTrackColor: AppColors.clay.withValues(alpha: 0.25),
+      thumbColor: AppColors.water,
+      overlayColor: AppColors.water.withValues(alpha: 0.16),
       valueIndicatorColor: AppColors.deepGreen,
+      trackHeight: 6,
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: AppColors.cream,
+      backgroundColor: Colors.white.withValues(alpha: 0.72),
+      elevation: 0,
       indicatorColor: AppColors.deepGreen.withValues(alpha: 0.16),
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
@@ -77,10 +85,26 @@ ThemeData buildAppTheme() {
       ),
     ),
     cardTheme: CardThemeData(
-      color: Colors.white,
+      color: Colors.white.withValues(alpha: 0.55),
       surfaceTintColor: Colors.transparent,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.65)),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.55),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: AppColors.clay.withValues(alpha: 0.35)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.deepGreen, width: 1.4),
+      ),
     ),
   );
 }
