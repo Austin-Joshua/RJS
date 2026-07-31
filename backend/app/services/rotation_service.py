@@ -502,6 +502,7 @@ async def rank_crops_for_field(
         "rotation_model": {
             "yield_multiplier": ctx.yield_multiplier,
             "same_crop_consecutive_multiplier": ctx.same_crop_multiplier,
+            "max_consecutive_same_crop": ctx.max_consecutive_same_crop,
             "n_credit_rs_per_crop": {c: round(v, 2) for c, v in ctx.n_credit_rs.items()},
             "families": ctx.families,
             "sources": rotation_cfg_all.get("sources", []),

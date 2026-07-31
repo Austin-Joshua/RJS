@@ -43,7 +43,11 @@ yield_multiplier:
 # Applied on top of the family multiplier when the *identical* crop is grown in
 # consecutive seasons. This is the continuous-monoculture penalty and it is the
 # single strongest coupling term in the model.
-same_crop_consecutive_multiplier: 0.88
+same_crop_consecutive_multiplier: 0.82
+
+# Hard rotation rule: do not repeat the same crop in back-to-back seasons when
+# another eligible crop exists for that slot (ICAR/TNAU break-crop guidance).
+max_consecutive_same_crop: 1
 
 # First season of the cycle has no predecessor. Its yield is taken at face
 # value from the classical model, with the soil card's own nitrogen status as

@@ -382,6 +382,21 @@ def test_rotation_respects_season_eligibility() -> None:
     assert not is_valid_sequence(ctx, ["black_gram", "paddy", "groundnut"]), "black gram is rabi/summer only"
 
 
+def test_no_back_to_back_same_crop_when_alternative_exists() -> None:
+    """Break-crop rule: triple monoculture is invalid when another crop fits."""
+    from app.quantum.rotation import brute_force_rotation, build_rotation_context, is_valid_sequence
+
+    ctx = build_rotation_context(
+        seasons=["kharif", "rabi", "summer"],
+        crops=["black_gram", "groundnut"],
+        base_value_per_crop={"black_gram": 23822.4, "groundnut": 85128.0},
+        area_ha=1.2,
+    )
+    assert not is_valid_sequence(ctx, ["groundnut", "groundnut", "groundnut"])
+    opt = brute_force_rotation(ctx)
+    assert opt["sequence"] == ["groundnut", "black_gram", "groundnut"]
+
+
 def test_rotation_qubo_is_one_season_per_block() -> None:
     from app.quantum.rotation import build_rotation_qubo
 

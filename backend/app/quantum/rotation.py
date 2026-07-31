@@ -49,6 +49,7 @@ class RotationContext:
     eligible_seasons: dict[str, list[str]]
     yield_multiplier: dict[str, dict[str, float]]
     same_crop_multiplier: float
+    max_consecutive_same_crop: int
     area_ha: float
 
 
@@ -95,19 +96,38 @@ def build_rotation_context(
         n_credit_rs={c: n_credit_rupees(c, area_ha) for c in crops},
         eligible_seasons=eligible,
         yield_multiplier=cfg.get("yield_multiplier", {}),
-        same_crop_multiplier=cfg.get("same_crop_consecutive_multiplier", 0.88),
+        same_crop_multiplier=cfg.get("same_crop_consecutive_multiplier", 0.82),
+        max_consecutive_same_crop=int(cfg.get("max_consecutive_same_crop", 1)),
         area_ha=area_ha,
     )
 
 
 def transition_multiplier(ctx: RotationContext, prev_crop: str, next_crop: str) -> float:
     """Yield multiplier applied to `next_crop` when it follows `prev_crop`."""
+    if prev_crop == next_crop:
+        prev_family = ctx.families.get(prev_crop, "cereal")
+        next_family = ctx.families.get(next_crop, "cereal")
+        mult = ctx.yield_multiplier.get(prev_family, {}).get(next_family, 1.0)
+        return mult * ctx.same_crop_multiplier
+    # Different species: family table applies only across families (legume→cereal
+    # break-crop bonus). Same-family swaps (groundnut→black gram) stay neutral.
     prev_family = ctx.families.get(prev_crop, "cereal")
     next_family = ctx.families.get(next_crop, "cereal")
-    mult = ctx.yield_multiplier.get(prev_family, {}).get(next_family, 1.0)
-    if prev_crop == next_crop:
-        mult *= ctx.same_crop_multiplier
-    return mult
+    if prev_family == next_family:
+        return 1.0
+    return ctx.yield_multiplier.get(prev_family, {}).get(next_family, 1.0)
+
+
+def eligible_crops_for_season(ctx: RotationContext, season: str) -> list[str]:
+    return [c for c in ctx.crops if is_season_eligible(ctx, season, c)]
+
+
+def allows_consecutive_same(ctx: RotationContext, prev_crop: str, season: str) -> bool:
+    """Whether repeating `prev_crop` in `season` is allowed under rotation rules."""
+    if ctx.max_consecutive_same_crop < 1:
+        return True
+    alternatives = [c for c in eligible_crops_for_season(ctx, season) if c != prev_crop]
+    return not alternatives
 
 
 def sequence_value(ctx: RotationContext, sequence: list[str]) -> float:
@@ -133,10 +153,15 @@ def is_season_eligible(ctx: RotationContext, season: str, crop: str) -> bool:
 
 
 def is_valid_sequence(ctx: RotationContext, sequence: list[str]) -> bool:
-    """Hard agronomic gate: every crop must actually be sowable in its season."""
+    """Hard agronomic gate: season eligibility + no back-to-back monoculture."""
     if len(sequence) != len(ctx.seasons):
         return False
-    return all(is_season_eligible(ctx, s, c) for s, c in zip(ctx.seasons, sequence))
+    for t, (season, crop) in enumerate(zip(ctx.seasons, sequence)):
+        if not is_season_eligible(ctx, season, crop):
+            return False
+        if t > 0 and crop == sequence[t - 1] and not allows_consecutive_same(ctx, sequence[t - 1], season):
+            return False
+    return True
 
 
 def decode_sequence(ctx: RotationContext, problem: QUBOProblem, bits: list[int]) -> list[str] | None:
@@ -202,6 +227,8 @@ def build_rotation_qubo(ctx: RotationContext, *, infeasible_penalty_scale: float
                 realised = ctx.base_value[(this_season, c)] * transition_multiplier(ctx, p, c)
                 realised += ctx.n_credit_rs.get(p, 0.0)
                 add(var_index[(prev_season, p)], var_index[(this_season, c)], -realised / max_v)
+                if p == c and not allows_consecutive_same(ctx, p, this_season):
+                    add(var_index[(prev_season, p)], var_index[(this_season, c)], penalty / max_v)
 
     return QUBOProblem(
         variables=variables,
@@ -269,11 +296,10 @@ def greedy_sort_rotation(ctx: RotationContext) -> dict:
     start = time.monotonic()
     sequence: list[str] = []
     for season in ctx.seasons:
-        ranked = sorted(
-            (c for c in ctx.crops if is_season_eligible(ctx, season, c)),
-            key=lambda c: ctx.base_value[(season, c)],
-            reverse=True,
-        )
+        candidates = [c for c in ctx.crops if is_season_eligible(ctx, season, c)]
+        if sequence and not allows_consecutive_same(ctx, sequence[-1], season):
+            candidates = [c for c in candidates if c != sequence[-1]] or candidates
+        ranked = sorted(candidates, key=lambda c: ctx.base_value[(season, c)], reverse=True)
         sequence.append(ranked[0] if ranked else ctx.crops[0])
 
     return {
@@ -307,9 +333,12 @@ def greedy_myopic_rotation(ctx: RotationContext) -> dict:
             best = max(candidates, key=lambda c: ctx.base_value[(season, c)])
         else:
             prev = sequence[-1]
+            if not allows_consecutive_same(ctx, prev, season):
+                candidates = [c for c in candidates if c != prev] or candidates
             best = max(
                 candidates,
-                key=lambda c: ctx.base_value[(season, c)] * transition_multiplier(ctx, prev, c),
+                key=lambda c: ctx.base_value[(season, c)] * transition_multiplier(ctx, prev, c)
+                + ctx.n_credit_rs.get(prev, 0.0),
             )
         sequence.append(best)
 
