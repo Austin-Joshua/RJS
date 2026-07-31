@@ -49,11 +49,21 @@
     </section>
 
     <section class="panel charts">
-      <h2>Benchmark charts — SPARQ vs legacy QAOA</h2>
-      <p class="hint">50-instance rotation benchmark from <code>benchmark.json</code> (temporal holdout for yield).</p>
+      <div class="charts-head">
+        <div>
+          <h2>Benchmark charts</h2>
+          <p class="hint">50-instance rotation benchmark · hover bars for detail · toggle solvers below</p>
+        </div>
+        <div class="chart-toggles" role="group" aria-label="Solver visibility">
+          <button type="button" class="chart-toggle active" data-series="both">Compare both</button>
+          <button type="button" class="chart-toggle" data-series="sparq">SPARQ only</button>
+          <button type="button" class="chart-toggle" data-series="legacy">QAOA only</button>
+        </div>
+      </div>
       <div class="chart-legend">
         <span class="legend-item"><span class="swatch sparq"></span> SPARQ (XY-ring)</span>
         <span class="legend-item"><span class="swatch legacy"></span> Legacy QAOA (slack)</span>
+        <span class="legend-item"><span class="swatch classical"></span> LightGBM</span>
       </div>
       <div class="chart-grid">
         <div class="chart-box" id="chart-quality"></div>
@@ -81,6 +91,7 @@
     </section>
   </main>
 
+  <script src="ops-charts.js"></script>
   <script src="ops.js"></script>
 </body>
 </html>
