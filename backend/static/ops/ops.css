@@ -5,6 +5,9 @@
   --cream: #f7f3eb;
   --soil: #3d2f24;
   --panel: rgba(255, 255, 255, 0.72);
+  --bento-gap: 1rem;
+  --bento-radius: 16px;
+  --bento-max: 1280px;
 }
 
 * { box-sizing: border-box; }
@@ -26,29 +29,59 @@ body {
 .hero h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
 .hero p { margin: 0; opacity: 0.9; font-size: 0.95rem; }
 
-.grid {
+/* ── Bento grid ───────────────────────────────────────────── */
+.bento {
   display: grid;
-  gap: 1rem;
-  padding: 1rem 1.25rem 2rem;
-  max-width: 1200px;
+  grid-template-columns: 1fr;
+  gap: var(--bento-gap);
+  padding: var(--bento-gap) max(1rem, calc((100% - var(--bento-max)) / 2 + 1rem)) 2rem;
+  max-width: var(--bento-max);
   margin: 0 auto;
+  align-items: stretch;
 }
 
-@media (min-width: 900px) {
-  .grid {
-    grid-template-columns: 1fr 1fr;
+@media (min-width: 768px) {
+  .bento {
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-areas:
+      "arch    arch    arch    arch    arch    arch"
+      "metrics metrics metrics metrics metrics metrics"
+      "charts  charts  charts  charts  charts  charts"
+      "demo    demo    demo    log     log     log";
   }
-  .log { grid-column: 1 / -1; }
-  .metrics { grid-column: 1 / -1; }
-  .charts { grid-column: 1 / -1; }
+
+  .bento-arch { grid-area: arch; }
+  .bento-metrics { grid-area: metrics; }
+  .bento-charts { grid-area: charts; }
+  .bento-demo { grid-area: demo; }
+  .bento-log { grid-area: log; }
+}
+
+@media (min-width: 1100px) {
+  .bento {
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-areas:
+      "arch    arch    arch    arch    arch    arch    arch    arch    arch    arch    arch    arch"
+      "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics"
+      "charts  charts  charts  charts  charts  charts  charts  charts  charts  charts  charts  charts"
+      "demo    demo    demo    demo    demo    log     log     log     log     log     log     log";
+  }
+}
+
+.bento-cell {
+  min-width: 0;
+  height: 100%;
 }
 
 .panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: var(--panel);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.65);
-  border-radius: 14px;
-  padding: 1rem 1.1rem;
+  border-radius: var(--bento-radius);
+  padding: 1.1rem 1.2rem;
   box-shadow: 0 8px 24px rgba(61, 47, 36, 0.08);
 }
 
@@ -56,21 +89,26 @@ body {
   margin: 0 0 0.75rem;
   font-size: 1.05rem;
   color: var(--green);
+  flex-shrink: 0;
 }
 
+/* ── Architecture strip ───────────────────────────────────── */
 .pipeline {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: center;
+  gap: 0.4rem;
+  flex: 1;
 }
 
 .step {
-  padding: 0.45rem 0.65rem;
-  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
   background: rgba(45, 90, 61, 0.08);
   border: 1px solid rgba(45, 90, 61, 0.2);
   font-size: 0.78rem;
+  white-space: nowrap;
   transition: background 0.2s, transform 0.2s;
 }
 
@@ -82,23 +120,30 @@ body {
 
 .arrow { color: var(--clay); font-size: 0.85rem; }
 
+/* ── Metric bento tiles ───────────────────────────────────── */
 .metric-row {
   display: grid;
-  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  gap: var(--bento-gap);
+  flex: 1;
+  align-items: stretch;
 }
 
-@media (min-width: 700px) {
+@media (min-width: 600px) {
   .metric-row { grid-template-columns: repeat(3, 1fr); }
 }
 
 .metric-card {
-  border-radius: 10px;
-  padding: 0.65rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
   font-size: 0.85rem;
+  min-height: 100%;
 }
 
-.metric-card h3 { margin: 0 0 0.5rem; font-size: 0.9rem; }
-.metric-card dl { margin: 0; }
+.metric-card h3 { margin: 0 0 0.5rem; font-size: 0.9rem; flex-shrink: 0; }
+.metric-card dl { margin: 0; flex: 1; }
 .metric-card dt { font-weight: 600; margin-top: 0.35rem; }
 .metric-card dd { margin: 0.1rem 0 0; color: var(--clay); }
 
@@ -106,6 +151,7 @@ body {
 .sparq { background: rgba(45, 90, 61, 0.18); border: 1px solid rgba(45, 90, 61, 0.35); }
 .legacy { background: rgba(196, 92, 62, 0.1); }
 
+/* ── Demo panel ───────────────────────────────────────────── */
 .demo label {
   display: block;
   margin: 0.5rem 0;
@@ -118,11 +164,12 @@ body {
   margin-top: 0.5rem;
   padding: 0.55rem 1rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--green);
   color: #fff;
   font-weight: 600;
   cursor: pointer;
+  align-self: flex-start;
 }
 
 #run-demo:disabled { opacity: 0.6; cursor: wait; }
@@ -132,27 +179,47 @@ body {
   font-size: 0.88rem;
   line-height: 1.45;
   min-height: 2.5rem;
+  flex: 1;
 }
 
 .hint { font-size: 0.82rem; color: var(--clay); margin: 0 0 0.5rem; }
 
+/* ── Log panel ────────────────────────────────────────────── */
+.log-wrap {
+  flex: 1;
+  display: flex;
+  min-height: 220px;
+}
+
 #log {
+  flex: 1;
   margin: 0;
-  height: 280px;
+  min-height: 220px;
   overflow-y: auto;
   background: #1a1f1c;
   color: #c8e6c9;
   padding: 0.75rem;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 0.75rem;
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+@media (min-width: 768px) {
+  .log-wrap,
+  #log { min-height: 280px; }
+}
+
 .log-line { margin-bottom: 0.35rem; }
 .log-line .ts { color: #81c784; }
 .log-line .stage { color: #ffcc80; font-weight: 600; }
+
+/* ── Charts bento ─────────────────────────────────────────── */
+.bento-charts {
+  display: flex;
+  flex-direction: column;
+}
 
 .charts .hint { margin: 0.25rem 0 0; }
 
@@ -163,6 +230,7 @@ body {
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.85rem;
+  flex-shrink: 0;
 }
 
 .charts-head h2 { margin: 0; }
@@ -203,6 +271,7 @@ body {
   gap: 1rem;
   margin-bottom: 1rem;
   font-size: 0.82rem;
+  flex-shrink: 0;
 }
 
 .legend-item { display: inline-flex; align-items: center; gap: 0.45rem; }
@@ -219,24 +288,37 @@ body {
 
 .chart-grid {
   display: grid;
-  gap: 1.1rem;
+  grid-template-columns: 1fr;
+  gap: var(--bento-gap);
+  flex: 1;
+  align-items: stretch;
 }
 
-@media (min-width: 960px) {
+@media (min-width: 700px) {
+  .chart-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1100px) {
   .chart-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 .chart-box {
-  min-height: 200px;
+  min-height: 0;
+  height: 100%;
+  display: flex;
 }
 
 .chart-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(247, 243, 235, 0.75));
   border: 1px solid rgba(45, 90, 61, 0.14);
   border-radius: 14px;
   padding: 0.85rem 0.9rem 0.7rem;
   box-shadow: 0 10px 28px rgba(61, 47, 36, 0.07);
   transition: box-shadow 0.25s, transform 0.25s;
+  min-height: 240px;
 }
 
 .chart-card:hover {
@@ -259,15 +341,18 @@ body {
 }
 
 .chart-svg-wrap {
+  flex: 1;
   overflow-x: auto;
   margin: 0 -0.2rem;
+  display: flex;
+  align-items: center;
 }
 
 .chart-svg {
   display: block;
   width: 100%;
   height: auto;
-  min-width: 300px;
+  min-width: 280px;
 }
 
 .chart-grid line.chart-grid {
@@ -295,9 +380,7 @@ body {
   font-family: inherit;
 }
 
-.chart-row {
-  transition: opacity 0.2s;
-}
+.chart-row { transition: opacity 0.2s; }
 
 .chart-svg:has(.chart-row.hover) .chart-row:not(.hover) {
   opacity: 0.35;
@@ -308,15 +391,14 @@ body {
   transition: opacity 0.2s, filter 0.2s;
 }
 
-.bar-rect:hover {
-  opacity: 0.92;
-}
+.bar-rect:hover { opacity: 0.92; }
 
 .chart-footnote {
   margin: 0.5rem 0 0;
   font-size: 0.72rem;
   color: var(--clay);
   font-style: italic;
+  flex-shrink: 0;
 }
 
 .chart-tooltip {
@@ -342,10 +424,7 @@ body {
   transform: translateY(0);
 }
 
-.chart-tooltip strong {
-  color: #fff;
-  font-size: 0.82rem;
-}
+.chart-tooltip strong { color: #fff; font-size: 0.82rem; }
 
 .chart-tooltip .tip-series {
   display: inline-block;

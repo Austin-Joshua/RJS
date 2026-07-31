@@ -12,8 +12,8 @@
     <p>Live pipeline: classical yield → feasibility gates → rotation QUBO → SPARQ</p>
   </header>
 
-  <main class="grid">
-    <section class="panel arch" id="arch-panel">
+  <main class="bento">
+    <section class="bento-cell panel arch bento-arch" id="arch-panel">
       <h2>Architecture</h2>
       <div class="pipeline" id="pipeline">
         <div class="step" data-stage="rank_start">Soil + scenario</div>
@@ -30,7 +30,7 @@
       </div>
     </section>
 
-    <section class="panel metrics">
+    <section class="bento-cell panel metrics bento-metrics">
       <h2>Performance metrics</h2>
       <div class="metric-row">
         <div class="metric-card classical">
@@ -48,7 +48,7 @@
       </div>
     </section>
 
-    <section class="panel charts">
+    <section class="bento-cell panel charts bento-charts">
       <div class="charts-head">
         <div>
           <h2>Benchmark charts</h2>
@@ -72,7 +72,7 @@
       </div>
     </section>
 
-    <section class="panel demo">
+    <section class="bento-cell panel demo bento-demo">
       <h2>Live demo (survival sliders)</h2>
       <p class="hint">Cut water → paddy drops out; SPARQ re-sequences what remains.</p>
       <label>Water (m³) <span id="water-val"></span>
@@ -85,9 +85,11 @@
       <div id="demo-result" class="demo-result"></div>
     </section>
 
-    <section class="panel log">
+    <section class="bento-cell panel log bento-log">
       <h2>Live computation log</h2>
-      <pre id="log" aria-live="polite"></pre>
+      <div class="log-wrap">
+        <pre id="log" aria-live="polite"></pre>
+      </div>
     </section>
   </main>
 
