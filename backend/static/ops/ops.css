@@ -39,6 +39,8 @@ body {
     grid-template-columns: 1fr 1fr;
   }
   .log { grid-column: 1 / -1; }
+  .metrics { grid-column: 1 / -1; }
+  .charts { grid-column: 1 / -1; }
 }
 
 .panel {
@@ -151,3 +153,73 @@ body {
 .log-line { margin-bottom: 0.35rem; }
 .log-line .ts { color: #81c784; }
 .log-line .stage { color: #ffcc80; font-weight: 600; }
+
+.charts .hint { margin-bottom: 0.75rem; }
+.charts code { font-size: 0.8em; background: rgba(45, 90, 61, 0.08); padding: 0.1rem 0.35rem; border-radius: 4px; }
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.legend-item { display: inline-flex; align-items: center; gap: 0.4rem; }
+.swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.swatch.sparq { background: var(--green); }
+.swatch.legacy { background: var(--terracotta); }
+
+.chart-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 800px) {
+  .chart-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.chart-box {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(45, 90, 61, 0.12);
+  border-radius: 10px;
+  padding: 0.5rem;
+  overflow-x: auto;
+}
+
+.chart-box svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-width: 260px;
+}
+
+.chart-title {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--green);
+}
+
+.chart-label {
+  font-size: 10px;
+  fill: var(--soil);
+}
+
+.chart-val {
+  font-size: 9px;
+  fill: var(--clay);
+}
+
+.bar.sparq { fill: var(--green); }
+.bar.legacy { fill: var(--terracotta); }
+.bar.classical { fill: #4a7c59; }
+
+.chart-axis {
+  stroke: rgba(61, 47, 36, 0.2);
+  stroke-width: 1;
+}

@@ -48,6 +48,20 @@
       </div>
     </section>
 
+    <section class="panel charts">
+      <h2>Benchmark charts — SPARQ vs legacy QAOA</h2>
+      <p class="hint">50-instance rotation benchmark from <code>benchmark.json</code> (temporal holdout for yield).</p>
+      <div class="chart-legend">
+        <span class="legend-item"><span class="swatch sparq"></span> SPARQ (XY-ring)</span>
+        <span class="legend-item"><span class="swatch legacy"></span> Legacy QAOA (slack)</span>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-box" id="chart-quality"></div>
+        <div class="chart-box" id="chart-runtime"></div>
+        <div class="chart-box" id="chart-yield"></div>
+      </div>
+    </section>
+
     <section class="panel demo">
       <h2>Live demo (survival sliders)</h2>
       <p class="hint">Cut water → paddy drops out; SPARQ re-sequences what remains.</p>
