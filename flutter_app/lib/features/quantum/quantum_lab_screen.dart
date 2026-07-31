@@ -164,7 +164,7 @@ class _QuantumLabScreenState extends ConsumerState<QuantumLabScreen> {
             Text('Quantum Lab', style: textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              'Mazhai varalana? Uram vela eriducha? Move the sliders — QAOA re-plans instantly.',
+              'Drag water or budget — the optimiser re-plans in seconds.',
               style: textTheme.bodyMedium?.copyWith(color: AppColors.clay),
             ),
             const SizedBox(height: 14),
@@ -201,10 +201,10 @@ class _QuantumLabScreenState extends ConsumerState<QuantumLabScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Survival controls', style: textTheme.titleMedium),
+                  Text('Survival sliders', style: textTheme.titleMedium),
                   const SizedBox(height: 4),
                   Text(
-                    'Cut water from 100% → 40% and watch paddy leave the plan for drought-tough pulses.',
+                    'Less water drops thirsty crops. Less budget drops expensive ones.',
                     style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
                   ),
                   const SizedBox(height: 12),
@@ -285,7 +285,7 @@ class _QuantumLabScreenState extends ConsumerState<QuantumLabScreen> {
                   ranking: _result!.ranking!,
                 ),
                 const SizedBox(height: 16),
-                _ComparisonBoard(result: _result!),
+                _ComparisonBoard(result: _result!, baseline: _baselineResult),
                 if (_result!.quantum != null) ...[
                   const SizedBox(height: 12),
                   GlassPanel(
@@ -480,6 +480,10 @@ class _ShiftBanner extends StatelessWidget {
       headline = '${before.map(cropLabel).join(' → ')}  →  ${after.map(cropLabel).join(' → ')}';
     }
 
+    final valueDelta = (baseline?.ranking != null && current.ranking != null)
+        ? current.ranking!.totalValueRs - baseline!.ranking!.totalValueRs
+        : null;
+
     return GlassPanel(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,6 +500,16 @@ class _ShiftBanner extends StatelessWidget {
                 Text('Live re-plan', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(headline, style: textTheme.bodySmall),
+                if (valueDelta != null && valueDelta.abs() > 1) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Plan value ${valueDelta >= 0 ? '+' : ''}${formatRs(valueDelta)} vs baseline',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: valueDelta >= 0 ? AppColors.deepGreen : AppColors.terracotta,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
                 if (current.quantum != null) ...[
                   const SizedBox(height: 6),
                   Text(
@@ -559,11 +573,12 @@ class _FeasibleStrip extends StatelessWidget {
   }
 }
 
-/// Side-by-side quantum vs sort vs greedy — the jury comparison board.
+/// Quantum vs classical strategies — bars, ₹ gaps, rotation economics.
 class _ComparisonBoard extends StatelessWidget {
-  const _ComparisonBoard({required this.result});
+  const _ComparisonBoard({required this.result, this.baseline});
 
   final RankResultOut result;
+  final RankResultOut? baseline;
 
   @override
   Widget build(BuildContext context) {
@@ -573,42 +588,108 @@ class _ComparisonBoard extends StatelessWidget {
     final greedy = result.greedyBaseline;
     if (ranking == null) return const SizedBox.shrink();
 
+    final quantumRs = ranking.totalValueRs;
+    final naiveStandalone = ranking.rankedCrops.fold<double>(0, (s, r) => s + r.standaloneValueRs);
+    final rotationDelta = quantumRs - naiveStandalone;
+
+    final methods = <_CompareRow>[
+      _CompareRow(
+        label: 'SPARQ plan',
+        sublabel: ranking.sequence.map(cropLabel).join(' → '),
+        valueRs: quantumRs,
+        color: AppColors.deepGreen,
+        isBest: true,
+      ),
+      if (sorted != null)
+        _CompareRow(
+          label: 'Sort by profit',
+          sublabel: sorted.sequence.map(cropLabel).join(' → '),
+          valueRs: sorted.valueRs,
+          color: AppColors.clay,
+          gapRs: quantumRs - sorted.valueRs,
+        ),
+      if (greedy != null)
+        _CompareRow(
+          label: 'Greedy look-ahead',
+          sublabel: greedy.sequence.map(cropLabel).join(' → '),
+          valueRs: greedy.valueRs,
+          color: AppColors.terracotta,
+          gapRs: quantumRs - greedy.valueRs,
+        ),
+    ];
+    final maxRs = methods.map((m) => m.valueRs).fold<double>(0, (a, b) => a > b ? a : b);
+
+    final baselineRs = baseline?.ranking?.totalValueRs;
+    final scenarioDelta = baselineRs != null ? quantumRs - baselineRs : null;
+
     return GlassPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Comparisons', style: textTheme.titleMedium),
-          const SizedBox(height: 2),
+          Text('Value comparison', style: textTheme.titleMedium),
+          const SizedBox(height: 4),
           Text(
-            'Same farm, same constraints — three search strategies. Quantum wins when order matters.',
+            'Totals include rotation penalties, N credits, and break-crop bonuses — not just yield × price.',
             style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
           ),
+          if (scenarioDelta != null && scenarioDelta.abs() > 1) ...[
+            const SizedBox(height: 10),
+            _DeltaChip(
+              label: 'vs slider baseline',
+              deltaRs: scenarioDelta,
+              before: baselineRs!,
+              after: quantumRs,
+            ),
+          ],
           const SizedBox(height: 14),
-          _MethodCard(
-            title: 'Quantum (QAOA / SPARQ)',
-            sequence: ranking.sequence,
-            valueRs: ranking.totalValueRs,
-            accent: AppColors.deepGreen,
-            badge: ranking.matchedExactOptimum ? 'Exact optimum' : 'Best sampled',
+          for (final m in methods) ...[
+            _CompareBar(row: m, maxRs: maxRs),
+            const SizedBox(height: 10),
+          ],
+          const Divider(height: 1),
+          const SizedBox(height: 10),
+          Text('Rotation economics', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          _MoneyRow(
+            label: 'Naïve sum (standalone)',
+            value: naiveStandalone,
+            hint: 'If each crop kept its solo profit',
           ),
-          const SizedBox(height: 8),
-          if (sorted != null)
-            _MethodCard(
-              title: 'Sort by profit',
-              sequence: sorted.sequence,
-              valueRs: sorted.valueRs,
-              accent: AppColors.clay,
-              badge: sorted.isSuboptimal ? '−${formatRs(sorted.gapRs)}' : 'Tied',
+          const SizedBox(height: 4),
+          _MoneyRow(
+            label: 'SPARQ realised total',
+            value: quantumRs,
+            hint: 'After monoculture & N-credit effects',
+            accent: AppColors.deepGreen,
+          ),
+          if (rotationDelta.abs() > 1) ...[
+            const SizedBox(height: 6),
+            _DeltaChip(
+              label: 'Rotation effect',
+              deltaRs: rotationDelta,
+              before: naiveStandalone,
+              after: quantumRs,
+              compact: true,
             ),
-          if (greedy != null) ...[
+          ],
+          const SizedBox(height: 12),
+          for (final row in ranking.rankedCrops)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: _SeasonEconomicsRow(crop: row),
+            ),
+          if (result.quantum != null && result.quantum!.measurements.length > 1) ...[
             const SizedBox(height: 8),
-            _MethodCard(
-              title: 'Greedy (one step ahead)',
-              sequence: greedy.sequence,
-              valueRs: greedy.valueRs,
-              accent: AppColors.terracotta,
-              badge: greedy.isSuboptimal ? '−${formatRs(greedy.gapRs)}' : 'Tied',
-            ),
+            Text('Other sampled plans', style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            for (final m in result.quantum!.measurements.skip(1).take(3))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '${m.sequence.map(cropLabel).join(' → ')} · ${formatRs(m.valueRs)} · ${(m.probability * 100).toStringAsFixed(0)}%',
+                  style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
+                ),
+              ),
           ],
         ],
       ),
@@ -616,31 +697,205 @@ class _ComparisonBoard extends StatelessWidget {
   }
 }
 
-class _MethodCard extends StatelessWidget {
-  const _MethodCard({
-    required this.title,
-    required this.sequence,
+class _CompareRow {
+  const _CompareRow({
+    required this.label,
+    required this.sublabel,
     required this.valueRs,
-    required this.accent,
-    required this.badge,
+    required this.color,
+    this.gapRs,
+    this.isBest = false,
   });
 
-  final String title;
-  final List<String> sequence;
+  final String label;
+  final String sublabel;
   final double valueRs;
-  final Color accent;
-  final String badge;
+  final Color color;
+  final double? gapRs;
+  final bool isBest;
+}
+
+class _CompareBar extends StatelessWidget {
+  const _CompareBar({required this.row, required this.maxRs});
+
+  final _CompareRow row;
+  final double maxRs;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final frac = maxRs <= 0 ? 0.0 : (row.valueRs / maxRs).clamp(0.0, 1.0);
+    final gap = row.gapRs ?? 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                row.label,
+                style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: row.color),
+              ),
+            ),
+            Text(
+              formatRs(row.valueRs),
+              style: textTheme.titleSmall?.copyWith(color: row.color, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          row.sublabel,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: frac,
+            minHeight: 10,
+            backgroundColor: row.color.withValues(alpha: 0.12),
+            color: row.color,
+          ),
+        ),
+        if (gap > 1 && !row.isBest)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'SPARQ earns ${formatRs(gap)} more',
+              style: textTheme.bodySmall?.copyWith(color: AppColors.deepGreen, fontWeight: FontWeight.w600),
+            ),
+          )
+        else if (row.isBest && gap <= 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              row.gapRs == null ? 'Best strategy at this constraint level' : 'Top value',
+              style: textTheme.bodySmall?.copyWith(color: AppColors.deepGreen),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _DeltaChip extends StatelessWidget {
+  const _DeltaChip({
+    required this.label,
+    required this.deltaRs,
+    required this.before,
+    required this.after,
+    this.compact = false,
+  });
+
+  final String label;
+  final double deltaRs;
+  final double before;
+  final double after;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final up = deltaRs >= 0;
+    final pct = before.abs() > 1 ? (deltaRs / before.abs() * 100) : 0.0;
+    final color = up ? AppColors.deepGreen : AppColors.terracotta;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: compact ? 8 : 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
-        color: accent.withValues(alpha: 0.06),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(up ? Icons.trending_up : Icons.trending_down, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  '${up ? '+' : ''}${formatRs(deltaRs)} (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)',
+                  style: textTheme.bodyMedium?.copyWith(color: color, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          if (!compact)
+            Text(
+              '${formatRs(before)} → ${formatRs(after)}',
+              style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoneyRow extends StatelessWidget {
+  const _MoneyRow({
+    required this.label,
+    required this.value,
+    required this.hint,
+    this.accent,
+  });
+
+  final String label;
+  final double value;
+  final String hint;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+              Text(hint, style: textTheme.bodySmall?.copyWith(color: AppColors.clay, fontSize: 11)),
+            ],
+          ),
+        ),
+        Text(
+          formatRs(value),
+          style: textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: accent ?? AppColors.soilBrown,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SeasonEconomicsRow extends StatelessWidget {
+  const _SeasonEconomicsRow({required this.crop});
+
+  final RankedCropOut crop;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final diff = crop.realisedValueRs - crop.standaloneValueRs;
+    final hasEffect = crop.rotationMultiplier != 1.0 || crop.nCreditRs.abs() > 1;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.clay.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,33 +904,23 @@ class _MethodCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: accent),
+                  '${seasonLabel(crop.season)} · ${cropLabel(crop.crop)}',
+                  style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  badge,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: textTheme.bodySmall?.copyWith(color: accent, fontWeight: FontWeight.w600),
-                ),
-              ),
+              Text(formatRs(crop.realisedValueRs), style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(sequence.map(cropLabel).join(' → '), style: textTheme.bodySmall),
-          const SizedBox(height: 4),
-          Text(
-            formatRs(valueRs),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: textTheme.titleMedium?.copyWith(color: accent),
-          ),
+          if (hasEffect)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Solo ${formatRs(crop.standaloneValueRs)}'
+                '${diff.abs() > 1 ? ' · ${diff >= 0 ? '+' : ''}${formatRs(diff)} rotation' : ''}'
+                '${crop.nCreditRs.abs() > 1 ? ' · N ${formatRs(crop.nCreditRs)}' : ''}',
+                style: textTheme.bodySmall?.copyWith(color: AppColors.clay, fontSize: 11),
+              ),
+            ),
         ],
       ),
     );
