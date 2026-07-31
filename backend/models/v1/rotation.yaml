@@ -58,6 +58,8 @@ curated_systems:
     paddy_yield_floor_t_ha: 3.2
     anchors:
       kharif: paddy
+    slot_multipliers:
+      - { season: rabi, crop: black_gram, multiplier: 1.18 }
     note: "Cauvery delta rice-fallow: kharif paddy when water is sufficient, then pulse/oilseed break crops."
 
 # First season of the cycle has no predecessor. Its yield is taken at face

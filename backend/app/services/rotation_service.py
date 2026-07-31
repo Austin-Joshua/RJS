@@ -331,6 +331,7 @@ async def rank_crops_for_field(
         base_value_per_crop=base_value,
         area_ha=area_ha,
         anchors=curation.get("anchors") or {},
+        slot_multipliers=curation.get("slot_multipliers") or [],
     )
     problem = build_rotation_qubo(ctx)
 

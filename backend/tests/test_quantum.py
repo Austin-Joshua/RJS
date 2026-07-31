@@ -417,6 +417,7 @@ def test_delta_curation_anchors_kharif_paddy_when_water_is_sufficient() -> None:
         base_value_per_crop={"paddy": 38000.0, "black_gram": 23822.4, "groundnut": 85128.0},
         area_ha=1.2,
         anchors=curation["anchors"],
+        slot_multipliers=curation["slot_multipliers"],
     )
     opt = brute_force_rotation(ctx)
     assert opt["sequence"] == ["paddy", "black_gram", "groundnut"]

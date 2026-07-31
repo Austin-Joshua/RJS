@@ -51,8 +51,8 @@ class RotationContext:
     yield_multiplier: dict[str, dict[str, float]]
     same_crop_multiplier: float
     max_consecutive_same_crop: int
-    anchors: dict[str, str] = field(default_factory=dict)
     area_ha: float
+    anchors: dict[str, str] = field(default_factory=dict)
 
 
 def n_credit_rupees(crop: str, area_ha: float) -> float:
@@ -75,6 +75,7 @@ def build_rotation_context(
     base_value_per_crop: dict[str, float],
     area_ha: float,
     anchors: dict[str, str] | None = None,
+    slot_multipliers: list[dict[str, Any]] | None = None,
 ) -> RotationContext:
     """Assemble the agronomic coupling tables for one farm's rotation problem.
 
@@ -90,6 +91,10 @@ def build_rotation_context(
     for s in seasons:
         for c in crops:
             base_value[(s, c)] = base_value_per_crop.get(c, 0.0)
+    for row in slot_multipliers or []:
+        key = (row["season"], row["crop"])
+        if key in base_value:
+            base_value[key] *= float(row["multiplier"])
 
     return RotationContext(
         seasons=seasons,
@@ -111,7 +116,7 @@ def resolve_delta_curation(
     rotation_candidates: list[str],
 ) -> dict[str, Any]:
     """Season anchors and yield floors for known regional cropping systems."""
-    empty: dict[str, Any] = {"system": None, "anchors": {}, "yield_floors": {}, "note": ""}
+    empty: dict[str, Any] = {"system": None, "anchors": {}, "yield_floors": {}, "slot_multipliers": [], "note": ""}
     cfg = load_rotation().get("curated_systems", {}).get("cauvery_delta_rice_fallow", {})
     if "paddy" not in rotation_candidates:
         return empty
@@ -134,6 +139,7 @@ def resolve_delta_curation(
         "system": "cauvery_delta_rice_fallow",
         "anchors": anchors,
         "yield_floors": floors,
+        "slot_multipliers": list(cfg.get("slot_multipliers") or []),
         "note": cfg.get("note", ""),
     }
 
