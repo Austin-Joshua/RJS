@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/brand.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/glass.dart';
 import '../../data/models/farm_models.dart';
@@ -27,7 +28,7 @@ class FarmListScreen extends ConsumerWidget {
           data: (rows) => rows.isEmpty
               ? _EmptyState(onAdd: () => _openAddFarm(context, ref))
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                  padding: AppBrand.pagePadding.copyWith(top: 16),
                   itemCount: rows.length + 1,
                   itemBuilder: (context, i) {
                     if (i == 0) {

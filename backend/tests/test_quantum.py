@@ -370,6 +370,37 @@ def test_sorting_is_measurably_wrong() -> None:
     assert suboptimal >= len(gaps) // 3, f"sort was optimal in {len(gaps)-suboptimal}/{len(gaps)} — coupling too weak"
 
 
+def test_greedy_baselines_respect_delta_anchors() -> None:
+    """Sort/greedy must honour kharif paddy anchors — invalid paths used to score ₹0."""
+    from app.quantum.rotation import (
+        brute_force_rotation,
+        greedy_myopic_rotation,
+        greedy_sort_rotation,
+        is_valid_sequence,
+        resolve_delta_curation,
+        build_rotation_context,
+    )
+
+    soil = {"soil_type": "alluvial", "water": {"category": "abundant"}}
+    crops = ["paddy", "black_gram", "groundnut"]
+    curation = resolve_delta_curation(soil, crops)
+    ctx = build_rotation_context(
+        seasons=["kharif", "rabi", "summer"],
+        crops=crops,
+        base_value_per_crop={"paddy": 38000.0, "black_gram": 23822.4, "groundnut": 85128.0},
+        area_ha=1.2,
+        anchors=curation["anchors"],
+        slot_multipliers=curation.get("slot_multipliers"),
+    )
+    opt = brute_force_rotation(ctx)
+    naive = greedy_sort_rotation(ctx)
+    myopic = greedy_myopic_rotation(ctx)
+    assert is_valid_sequence(ctx, naive["sequence"])
+    assert is_valid_sequence(ctx, myopic["sequence"])
+    assert naive["value"] > 0
+    assert opt["value"] - naive["value"] > 100, "sort should be measurably below optimum"
+
+
 def test_rotation_respects_season_eligibility() -> None:
     """Black gram cannot be sown in kharif, so no returned sequence may put it
     there — an agronomic hard gate, not a preference."""

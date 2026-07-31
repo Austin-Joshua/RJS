@@ -447,6 +447,7 @@ class RankResultOut {
     this.quantum,
     this.sortedBaseline,
     this.greedyBaseline,
+    this.standaloneBaseline,
     this.exactBaseline,
     this.advisory,
     this.error,
@@ -463,6 +464,7 @@ class RankResultOut {
   final QuantumOut? quantum;
   final BaselineOut? sortedBaseline;
   final BaselineOut? greedyBaseline;
+  final BaselineOut? standaloneBaseline;
   final BaselineOut? exactBaseline;
   final Map<String, dynamic>? advisory;
   final String? error;
@@ -488,6 +490,9 @@ class RankResultOut {
       greedyBaseline: baselines?['greedy_with_lookback'] == null
           ? null
           : BaselineOut.fromJson(baselines!['greedy_with_lookback'] as Map<String, dynamic>),
+      standaloneBaseline: baselines?['standalone_sum'] == null
+          ? null
+          : BaselineOut.fromJson(baselines!['standalone_sum'] as Map<String, dynamic>),
       exactBaseline: baselines?['exact'] == null
           ? null
           : BaselineOut.fromJson(baselines!['exact'] as Map<String, dynamic>),

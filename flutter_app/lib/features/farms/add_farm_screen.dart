@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/device_location.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/glass.dart';
 import '../../data/models/farm_models.dart';
@@ -47,7 +47,32 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
   bool _scanning = false;
   String? _error;
   String? _ocrNote;
+  String? _locationNote;
   File? _cardImage;
+
+  static const _defaultLat = 10.7550;
+  static const _defaultLon = 79.0550;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _useCurrentLocation(silent: true));
+  }
+
+  bool get _hasDefaultCoords {
+    final lat = double.tryParse(_lat.text.trim());
+    final lon = double.tryParse(_lon.text.trim());
+    if (lat == null || lon == null) return true;
+    return (lat - _defaultLat).abs() < 0.0001 && (lon - _defaultLon).abs() < 0.0001;
+  }
+
+  void _setCoords(double lat, double lon, {required String note}) {
+    setState(() {
+      _lat.text = lat.toStringAsFixed(5);
+      _lon.text = lon.toStringAsFixed(5);
+      _locationNote = note;
+    });
+  }
 
   @override
   void dispose() {
@@ -58,29 +83,29 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
     super.dispose();
   }
 
-  Future<void> _useCurrentLocation() async {
-    setState(() {
-      _locating = true;
-      _error = null;
-    });
-    try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        throw Exception('Location permission denied — enter the coordinates instead.');
-      }
-      final pos = await Geolocator.getCurrentPosition();
-      if (!mounted) return;
+  Future<void> _useCurrentLocation({bool silent = false}) async {
+    if (!silent) {
       setState(() {
-        _lat.text = pos.latitude.toStringAsFixed(5);
-        _lon.text = pos.longitude.toStringAsFixed(5);
+        _locating = true;
+        _error = null;
       });
+    }
+    try {
+      final pos = await DeviceLocation.current();
+      if (!mounted) return;
+      _setCoords(pos.latitude, pos.longitude, note: 'GPS location set — district will match this pin.');
+    } on DeviceLocationException catch (e) {
+      if (!mounted) return;
+      if (silent) {
+        setState(() => _locationNote = 'Tap below to use GPS, or keep the default Thanjavur coordinates.');
+      } else {
+        setState(() => _error = e.message);
+      }
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (!mounted) return;
+      if (!silent) setState(() => _error = '$e');
     } finally {
-      if (mounted) setState(() => _locating = false);
+      if (mounted && !silent) setState(() => _locating = false);
     }
   }
 
@@ -105,6 +130,9 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
       final result = await _ocr.scanFile(File(shot.path));
       if (!mounted) return;
       _applyOcr(result);
+      if (_hasDefaultCoords) {
+        await _useCurrentLocation(silent: true);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -249,7 +277,8 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Or fill the form yourself — same result either way.',
+              'Upload a Soil Health Card photo — ML Kit reads N, P, K, pH on your phone. '
+              'We also try to pin your farm with GPS.',
               style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
             ),
             const SizedBox(height: 22),
@@ -267,13 +296,21 @@ class _AddFarmScreenState extends ConsumerState<AddFarmScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: _locating ? null : _useCurrentLocation,
+                onPressed: _locating ? null : () => _useCurrentLocation(),
                 icon: _locating
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.my_location, size: 18),
                 label: Text(_locating ? 'Locating…' : 'Use my current location'),
               ),
             ),
+            if (_locationNote != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  _locationNote!,
+                  style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
+                ),
+              ),
             const SizedBox(height: 20),
             Text('Soil readings', style: textTheme.titleMedium),
             Text(

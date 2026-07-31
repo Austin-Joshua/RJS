@@ -2,6 +2,7 @@ import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/brand.dart';
 import '../../core/auth_token.dart';
 import '../../core/demo_session.dart';
 import '../../core/env.dart';
@@ -20,7 +21,7 @@ class FarmSyncApp extends ConsumerWidget {
     // Boot-time dart-define shortcut, or in-app "Open demo farms".
     if (Env.isDevLogin || demoSession) {
       return MaterialApp(
-        title: 'Crop Advisor',
+        title: AppBrand.name,
         theme: buildAppTheme(),
         debugShowCheckedModeBanner: false,
         home: const _DemoHome(),
@@ -38,7 +39,7 @@ class FarmSyncApp extends ConsumerWidget {
     return ClerkAuth(
       config: ClerkAuthConfig(publishableKey: Env.clerkPublishableKey),
       child: MaterialApp(
-        title: 'Crop Advisor',
+        title: AppBrand.name,
         theme: buildAppTheme(),
         debugShowCheckedModeBanner: false,
         home: ClerkErrorListener(
@@ -154,12 +155,7 @@ class _DemoHomeState extends ConsumerState<_DemoHome> {
 
   @override
   Widget build(BuildContext context) {
-    return Banner(
-      message: 'DEMO',
-      location: BannerLocation.topEnd,
-      color: AppColors.terracotta,
-      child: const HomeShell(demoMode: true),
-    );
+    return const HomeShell(demoMode: true);
   }
 }
 

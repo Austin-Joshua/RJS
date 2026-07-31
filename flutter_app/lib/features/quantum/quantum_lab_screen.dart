@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/brand.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/glass.dart';
+import '../../core/widgets/page_section.dart';
 import '../../data/models/farm_models.dart';
 import '../../data/repos/farm_repo.dart';
 import '../farms/format.dart';
@@ -12,7 +14,7 @@ import '../farms/plan_timeline.dart';
 import '../farms/quantum_panel.dart';
 import 'quantum_lab_providers.dart';
 
-/// Separate page: survival sliders + live QAOA re-rank + quantum vs classical comparisons.
+/// What-if crop planner — adjust water/budget and see the plan update live.
 class QuantumLabScreen extends ConsumerStatefulWidget {
   const QuantumLabScreen({super.key});
 
@@ -159,153 +161,191 @@ class _QuantumLabScreenState extends ConsumerState<QuantumLabScreen> {
         }
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+          padding: AppBrand.pagePadding,
           children: [
-            Text('Quantum Lab', style: textTheme.titleLarge),
-            const SizedBox(height: 4),
-            Text(
-              'Drag water or budget — the optimiser re-plans in seconds.',
-              style: textTheme.bodyMedium?.copyWith(color: AppColors.clay),
+            const PageHero(
+              title: 'Crop planner',
+              subtitle:
+                  'Pick a farm, drag water or budget, and see which crops still fit — and what you might earn.',
             ),
-            const SizedBox(height: 14),
-            GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Farm', style: textTheme.bodySmall?.copyWith(color: AppColors.clay)),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey(selectedId),
-                    isExpanded: true,
-                    initialValue: list.any((f) => f.id == selectedId) ? selectedId : list.first.id,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    selectedItemBuilder: (context) => [
-                      for (final f in list)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '${f.name} · ${f.areaHa.toStringAsFixed(1)} ha',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: textTheme.bodyMedium,
-                          ),
-                        ),
-                    ],
-                    items: [
-                      for (final f in list)
-                        DropdownMenuItem(
-                          value: f.id,
-                          child: Text(
-                            '${f.name} · ${f.areaHa.toStringAsFixed(1)} ha',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: (id) {
-                      if (id == null) return;
-                      ref.read(quantumLabFarmIdProvider.notifier).select(id);
-                      _selectFarm(id, force: true);
-                    },
+            const SizedBox(height: 16),
+            PageSection(
+              step: 1,
+              title: 'Choose your farm',
+              child: GlassPanel(
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey(selectedId),
+                  isExpanded: true,
+                  initialValue: list.any((f) => f.id == selectedId) ? selectedId : list.first.id,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
                   ),
-                ],
+                  selectedItemBuilder: (context) => [
+                    for (final f in list)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${f.name} · ${f.areaHa.toStringAsFixed(1)} ha',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodyMedium,
+                        ),
+                      ),
+                  ],
+                  items: [
+                    for (final f in list)
+                      DropdownMenuItem(
+                        value: f.id,
+                        child: Text(
+                          '${f.name} · ${f.areaHa.toStringAsFixed(1)} ha',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (id) {
+                    if (id == null) return;
+                    ref.read(quantumLabFarmIdProvider.notifier).select(id);
+                    _selectFarm(id, force: true);
+                  },
+                ),
               ),
             ),
-            const SizedBox(height: 14),
-            GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Survival sliders', style: textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Less water drops thirsty crops. Less budget drops expensive ones.',
-                    style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
-                  ),
-                  const SizedBox(height: 12),
-                  WaterSliderCard(
-                    valueM3: _waterM3,
-                    min: 0,
-                    max: _waterMaxM3,
-                    embedded: true,
-                    title: 'Available water',
-                    subtitle: '${_waterPct.round()}% of season supply · baseline ${_baselineWaterM3.round()} m³',
-                    onChanged: (v) {
-                      setState(() {
-                        _waterPct =
-                            (_waterMaxM3 <= 0 ? 100.0 : (v / _waterMaxM3) * 100).clamp(5.0, 100.0).toDouble();
-                      });
-                      _scheduleRank();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _BudgetSliderCard(
-                    valueRs: _budgetRs,
-                    maxRs: _budgetMaxRs,
-                    pct: _budgetPct,
-                    onChanged: (v) {
-                      setState(() {
-                        _budgetPct =
-                            (_budgetMaxRs <= 0 ? 100.0 : (v / _budgetMaxRs) * 100).clamp(5.0, 100.0).toDouble();
-                      });
-                      _scheduleRank();
-                    },
-                  ),
-                  if (_running) ...[
-                    const SizedBox(height: 10),
-                    const LinearProgressIndicator(color: AppColors.deepGreen),
-                    const SizedBox(height: 4),
-                    Text('Re-running quantum optimiser…',
-                        style: textTheme.bodySmall?.copyWith(color: AppColors.deepGreen)),
+            const SizedBox(height: 20),
+            PageSection(
+              step: 2,
+              title: 'Set your limits',
+              subtitle: 'Less water removes thirsty crops like paddy. Less budget removes expensive ones.',
+              child: GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    WaterSliderCard(
+                      valueM3: _waterM3,
+                      min: 0,
+                      max: _waterMaxM3,
+                      embedded: true,
+                      title: 'Water available',
+                      subtitle:
+                          '${_waterPct.round()}% of season supply · stored ${_baselineWaterM3.round()} m³',
+                      onChanged: (v) {
+                        setState(() {
+                          _waterPct =
+                              (_waterMaxM3 <= 0 ? 100.0 : (v / _waterMaxM3) * 100).clamp(5.0, 100.0).toDouble();
+                        });
+                        _scheduleRank();
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
+                    _BudgetSliderCard(
+                      valueRs: _budgetRs,
+                      maxRs: _budgetMaxRs,
+                      pct: _budgetPct,
+                      onChanged: (v) {
+                        setState(() {
+                          _budgetPct =
+                              (_budgetMaxRs <= 0 ? 100.0 : (v / _budgetMaxRs) * 100).clamp(5.0, 100.0).toDouble();
+                        });
+                        _scheduleRank();
+                      },
+                    ),
+                    if (_running) ...[
+                      const SizedBox(height: 14),
+                      const LinearProgressIndicator(color: AppColors.deepGreen),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Updating your plan…',
+                        style: textTheme.bodySmall?.copyWith(color: AppColors.deepGreen),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
-              Text(_error!, style: textTheme.bodyMedium?.copyWith(color: AppColors.terracotta)),
+              GlassPanel(
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: AppColors.terracotta, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(_error!, style: textTheme.bodySmall?.copyWith(color: AppColors.terracotta)),
+                    ),
+                  ],
+                ),
+              ),
             ],
             if (_result != null) ...[
-              const SizedBox(height: 16),
-              _ScenarioBar(result: _result!, waterM3: _waterM3, budgetRs: _budgetRs),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ShiftBanner(baseline: _baselineResult, current: _result!),
-                  ),
-                  TextButton(
-                    onPressed: _result == null ? null : () => setState(() => _baselineResult = _result),
-                    child: const Text('Reset baseline'),
-                  ),
-                ],
+              const SizedBox(height: 24),
+              PageSection(
+                step: 3,
+                title: 'What changed',
+                subtitle: 'Compared to when you opened this screen, or after you tap Reset baseline.',
+                child: Column(
+                  children: [
+                    _ScenarioBar(result: _result!, waterM3: _waterM3, budgetRs: _budgetRs),
+                    const SizedBox(height: 10),
+                    _ShiftBanner(baseline: _baselineResult, current: _result!),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _result == null ? null : () => setState(() => _baselineResult = _result),
+                        child: const Text('Reset baseline'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              _FeasibleStrip(result: _result!),
-              if (_result!.pipeline?.excludedCrops.isNotEmpty == true) ...[
-                const SizedBox(height: 8),
-                _ExcludedReasons(excluded: _result!.pipeline!.excludedCrops),
+              if (_result!.ranking != null) ...[
+                const SizedBox(height: 20),
+                PageSection(
+                  step: 4,
+                  title: 'Your crop order',
+                  subtitle: 'Season by season — tap a bar in the chart for details.',
+                  child: PlanTimeline(
+                    key: ValueKey(
+                      '${_result!.ranking!.sequence.join('-')}-'
+                      '${_result!.feasibility.rotationCandidates.join('-')}',
+                    ),
+                    ranking: _result!.ranking!,
+                  ),
+                ),
               ],
+              const SizedBox(height: 20),
+              PageSection(
+                step: 5,
+                title: 'Which crops qualify',
+                subtitle: 'Green = passes soil and water checks at these slider settings.',
+                child: Column(
+                  children: [
+                    _FeasibleStrip(result: _result!),
+                    if (_result!.pipeline?.excludedCrops.isNotEmpty == true) ...[
+                      const SizedBox(height: 10),
+                      _ExcludedReasons(excluded: _result!.pipeline!.excludedCrops),
+                    ],
+                  ],
+                ),
+              ),
               if (_result!.error != null) ...[
                 const SizedBox(height: 12),
                 Text(_result!.error!, style: textTheme.bodyMedium?.copyWith(color: AppColors.terracotta)),
               ],
               if (_result!.ranking != null) ...[
-                const SizedBox(height: 16),
-                PlanTimeline(
-                  key: ValueKey(
-                    '${_result!.ranking!.sequence.join('-')}-'
-                    '${_result!.feasibility.rotationCandidates.join('-')}',
-                  ),
-                  ranking: _result!.ranking!,
+                const SizedBox(height: 20),
+                PageSection(
+                  step: 6,
+                  title: 'Expected earnings',
+                  subtitle: 'How this plan compares to simpler sorting — includes rotation bonuses.',
+                  child: _ComparisonBoard(result: _result!, baseline: _baselineResult),
                 ),
-                const SizedBox(height: 16),
-                _ComparisonBoard(result: _result!, baseline: _baselineResult),
                 if (_result!.quantum != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   GlassPanel(
                     padding: EdgeInsets.zero,
                     child: Theme(
@@ -314,9 +354,9 @@ class _QuantumLabScreenState extends ConsumerState<QuantumLabScreen> {
                         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
                         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         leading: const Icon(Icons.memory, color: AppColors.deepGreen),
-                        title: Text('Quantum circuit details', style: textTheme.titleMedium),
+                        title: Text('Technical details', style: textTheme.titleMedium),
                         subtitle: Text(
-                          'Rates, measurements, circuit — tap to expand',
+                          'Quantum circuit stats — for advanced users',
                           style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
                         ),
                         children: [QuantumPanel(result: _result!)],
@@ -428,7 +468,7 @@ class _ScenarioBar extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Active scenario · ${water.round()} m³ ($band) · ${formatRs(scenario?.budgetRs ?? budgetRs)}',
+              'Right now: ${water.round()} m³ water ($band) · ${formatRs(scenario?.budgetRs ?? budgetRs)} budget',
               style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
@@ -450,7 +490,7 @@ class _ExcludedReasons extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Why crops dropped', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Why some crops were removed', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           for (final e in excluded.take(4))
             Padding(
@@ -515,7 +555,7 @@ class _ShiftBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Live re-plan', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                Text('Plan update', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(headline, style: textTheme.bodySmall),
                 if (valueDelta != null && valueDelta.abs() > 1) ...[
@@ -563,7 +603,12 @@ class _FeasibleStrip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Gates under this scenario', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Crops that qualify', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+            'Strikethrough = ruled out at this water or budget level.',
+            style: textTheme.bodySmall?.copyWith(color: AppColors.clay, fontSize: 11),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
@@ -604,21 +649,20 @@ class _ComparisonBoard extends StatelessWidget {
     final ranking = result.ranking;
     final sorted = result.sortedBaseline;
     final greedy = result.greedyBaseline;
+    final standalone = result.standaloneBaseline;
     if (ranking == null) return const SizedBox.shrink();
 
     final quantumRs = ranking.totalValueRs;
-    final naiveStandalone = ranking.rankedCrops.fold<double>(0, (s, r) => s + r.standaloneValueRs);
-    final rotationDelta = quantumRs - naiveStandalone;
 
     final methods = <_CompareRow>[
       _CompareRow(
-        label: 'SPARQ plan',
+        label: 'Recommended plan',
         sublabel: ranking.sequence.map(cropLabel).join(' → '),
         valueRs: quantumRs,
         color: AppColors.deepGreen,
         isBest: true,
       ),
-      if (sorted != null)
+      if (sorted != null && sorted.sequence.isNotEmpty)
         _CompareRow(
           label: 'Sort by profit',
           sublabel: sorted.sequence.map(cropLabel).join(' → '),
@@ -626,7 +670,7 @@ class _ComparisonBoard extends StatelessWidget {
           color: AppColors.clay,
           gapRs: quantumRs - sorted.valueRs,
         ),
-      if (greedy != null)
+      if (greedy != null && greedy.sequence.isNotEmpty)
         _CompareRow(
           label: 'Greedy look-ahead',
           sublabel: greedy.sequence.map(cropLabel).join(' → '),
@@ -634,8 +678,22 @@ class _ComparisonBoard extends StatelessWidget {
           color: AppColors.terracotta,
           gapRs: quantumRs - greedy.valueRs,
         ),
+      if (standalone != null)
+        _CompareRow(
+          label: 'Solo profit total',
+          sublabel: 'Adds each crop alone — no rotation order',
+          valueRs: standalone.valueRs,
+          color: AppColors.soilBrown,
+          gapRs: quantumRs - standalone.valueRs,
+        ),
     ];
     final maxRs = methods.map((m) => m.valueRs).fold<double>(0, (a, b) => a > b ? a : b);
+    final allSameOrder = methods
+        .where((m) => m.sublabel.contains('→'))
+        .map((m) => m.sublabel)
+        .toSet()
+        .length <=
+        1;
 
     final baselineRs = baseline?.ranking?.totalValueRs;
     final scenarioDelta = baselineRs != null ? quantumRs - baselineRs : null;
@@ -644,12 +702,19 @@ class _ComparisonBoard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Value comparison', style: textTheme.titleMedium),
+          Text('Compare strategies', style: textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
-            'Totals include rotation penalties, N credits, and break-crop bonuses — not just yield × price.',
+            'Each row is a different way to pick crops. The ₹ gap shows what rotation order is worth.',
             style: textTheme.bodySmall?.copyWith(color: AppColors.clay),
           ),
+          if (allSameOrder && methods.length > 1) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Sort and greedy picked the same order here — compare the solo total to see rotation value.',
+              style: textTheme.bodySmall?.copyWith(color: AppColors.clay, fontStyle: FontStyle.italic),
+            ),
+          ],
           if (scenarioDelta != null && scenarioDelta.abs() > 1) ...[
             const SizedBox(height: 10),
             _DeltaChip(
@@ -664,38 +729,17 @@ class _ComparisonBoard extends StatelessWidget {
             _CompareBar(row: m, maxRs: maxRs),
             const SizedBox(height: 10),
           ],
-          const Divider(height: 1),
-          const SizedBox(height: 10),
-          Text('Rotation economics', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          _MoneyRow(
-            label: 'Naïve sum (standalone)',
-            value: naiveStandalone,
-            hint: 'If each crop kept its solo profit',
-          ),
-          const SizedBox(height: 4),
-          _MoneyRow(
-            label: 'SPARQ realised total',
-            value: quantumRs,
-            hint: 'After monoculture & N-credit effects',
-            accent: AppColors.deepGreen,
-          ),
-          if (rotationDelta.abs() > 1) ...[
+          if (ranking.rankedCrops.isNotEmpty) ...[
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            Text('Per-season detail', style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            _DeltaChip(
-              label: 'Rotation effect',
-              deltaRs: rotationDelta,
-              before: naiveStandalone,
-              after: quantumRs,
-              compact: true,
-            ),
+            for (final row in ranking.rankedCrops)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _SeasonEconomicsRow(crop: row),
+              ),
           ],
-          const SizedBox(height: 12),
-          for (final row in ranking.rankedCrops)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: _SeasonEconomicsRow(crop: row),
-            ),
           if (result.quantum != null && result.quantum!.measurements.length > 1) ...[
             const SizedBox(height: 8),
             Text('Other sampled plans', style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
@@ -779,20 +823,33 @@ class _CompareBar extends StatelessWidget {
             color: row.color,
           ),
         ),
-        if (gap > 1 && !row.isBest)
+        if (gap.abs() > 1 && !row.isBest)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              'SPARQ earns ${formatRs(gap)} more',
-              style: textTheme.bodySmall?.copyWith(color: AppColors.deepGreen, fontWeight: FontWeight.w600),
+              gap > 0
+                  ? 'Recommended plan earns ${formatRs(gap)} more'
+                  : 'This path earns ${formatRs(-gap)} more (unusual)',
+              style: textTheme.bodySmall?.copyWith(
+                color: gap > 0 ? AppColors.deepGreen : AppColors.terracotta,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           )
-        else if (row.isBest && gap <= 0)
+        else if (row.isBest)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              row.gapRs == null ? 'Best strategy at this constraint level' : 'Top value',
+              'Best rotation order for your soil',
               style: textTheme.bodySmall?.copyWith(color: AppColors.deepGreen),
+            ),
+          )
+        else if (gap.abs() <= 1 && row.sublabel.contains('→'))
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Same ₹ as recommended — different order may still matter at other water levels',
+              style: textTheme.bodySmall?.copyWith(color: AppColors.clay, fontSize: 11),
             ),
           ),
       ],
@@ -853,46 +910,6 @@ class _DeltaChip extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-class _MoneyRow extends StatelessWidget {
-  const _MoneyRow({
-    required this.label,
-    required this.value,
-    required this.hint,
-    this.accent,
-  });
-
-  final String label;
-  final double value;
-  final String hint;
-  final Color? accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-              Text(hint, style: textTheme.bodySmall?.copyWith(color: AppColors.clay, fontSize: 11)),
-            ],
-          ),
-        ),
-        Text(
-          formatRs(value),
-          style: textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: accent ?? AppColors.soilBrown,
-          ),
-        ),
-      ],
     );
   }
 }

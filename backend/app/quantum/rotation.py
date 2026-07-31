@@ -329,6 +329,26 @@ def brute_force_rotation(ctx: RotationContext) -> dict:
     }
 
 
+def _season_candidates(ctx: RotationContext, season: str, prev_crop: str | None) -> list[str]:
+    """Eligible crops for a season, honouring anchors and break-crop rule."""
+    anchor = ctx.anchors.get(season)
+    if anchor:
+        return [anchor] if is_season_eligible(ctx, season, anchor) else []
+    candidates = [c for c in ctx.crops if is_season_eligible(ctx, season, c)]
+    if prev_crop is not None and not allows_consecutive_same(ctx, prev_crop, season):
+        candidates = [c for c in candidates if c != prev_crop] or candidates
+    return candidates
+
+
+def _standalone_profit_order(ctx: RotationContext) -> list[str]:
+    """Crops ranked by best standalone slot value — the literal 'sort by profit' order."""
+    return sorted(
+        ctx.crops,
+        key=lambda c: max(ctx.base_value[(s, c)] for s in ctx.seasons),
+        reverse=True,
+    )
+
+
 def greedy_sort_rotation(ctx: RotationContext) -> dict:
     """The naive baseline: rank crops by standalone value, fill seasons in order.
 
@@ -340,18 +360,21 @@ def greedy_sort_rotation(ctx: RotationContext) -> dict:
     import time
 
     start = time.monotonic()
+    profit_order = _standalone_profit_order(ctx)
     sequence: list[str] = []
     for season in ctx.seasons:
-        candidates = [c for c in ctx.crops if is_season_eligible(ctx, season, c)]
-        if sequence and not allows_consecutive_same(ctx, sequence[-1], season):
-            candidates = [c for c in candidates if c != sequence[-1]] or candidates
-        ranked = sorted(candidates, key=lambda c: ctx.base_value[(season, c)], reverse=True)
-        sequence.append(ranked[0] if ranked else ctx.crops[0])
+        candidates = _season_candidates(ctx, season, sequence[-1] if sequence else None)
+        if not candidates:
+            sequence.append(ctx.crops[0])
+            continue
+        pick = next((c for c in profit_order if c in candidates), candidates[0])
+        sequence.append(pick)
 
+    valid = is_valid_sequence(ctx, sequence)
     return {
         "sequence": sequence,
-        "value": sequence_value(ctx, sequence) if is_valid_sequence(ctx, sequence) else 0.0,
-        "valid": is_valid_sequence(ctx, sequence),
+        "value": sequence_value(ctx, sequence) if valid else 0.0,
+        "valid": valid,
         "wall_time_s": time.monotonic() - start,
     }
 
@@ -371,16 +394,18 @@ def greedy_myopic_rotation(ctx: RotationContext) -> dict:
     start = time.monotonic()
     sequence: list[str] = []
     for t, season in enumerate(ctx.seasons):
-        candidates = [c for c in ctx.crops if is_season_eligible(ctx, season, c)]
+        anchor = ctx.anchors.get(season)
+        if anchor:
+            sequence.append(anchor)
+            continue
+        prev = sequence[-1] if sequence else None
+        candidates = _season_candidates(ctx, season, prev)
         if not candidates:
             sequence.append(ctx.crops[0])
             continue
         if t == 0:
             best = max(candidates, key=lambda c: ctx.base_value[(season, c)])
         else:
-            prev = sequence[-1]
-            if not allows_consecutive_same(ctx, prev, season):
-                candidates = [c for c in candidates if c != prev] or candidates
             best = max(
                 candidates,
                 key=lambda c: ctx.base_value[(season, c)] * transition_multiplier(ctx, prev, c)
@@ -394,6 +419,17 @@ def greedy_myopic_rotation(ctx: RotationContext) -> dict:
         "value": sequence_value(ctx, sequence) if valid else 0.0,
         "valid": valid,
         "wall_time_s": time.monotonic() - start,
+    }
+
+
+def standalone_sum_baseline(ctx: RotationContext, base_value_per_crop: dict[str, float]) -> dict:
+    """Sum of each crop's solo profit — ignores sequencing and rotation bonuses."""
+    total = sum(base_value_per_crop.get(c, 0.0) for c in ctx.crops)
+    return {
+        "sequence": [],
+        "value": total,
+        "valid": False,
+        "wall_time_s": 0.0,
     }
 
 

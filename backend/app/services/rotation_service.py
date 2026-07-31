@@ -30,6 +30,7 @@ from app.quantum.rotation import (
     explain_sequence,
     greedy_myopic_rotation,
     greedy_sort_rotation,
+    standalone_sum_baseline,
     is_valid_sequence,
     resolve_delta_curation,
     sequence_value,
@@ -435,6 +436,8 @@ async def rank_crops_for_field(
     # concrete answer to "why not just sort by predicted yield?".
     sort_gap = total_value - naive["value"]
     myopic_gap = total_value - myopic["value"]
+    solo_sum = standalone_sum_baseline(ctx, base_value)
+    solo_gap = total_value - solo_sum["value"]
 
     # §2.6 — treatment advice for the crops actually recommended. Built here
     # rather than in the route so that every caller of this pipeline (the API,
@@ -489,6 +492,13 @@ async def rank_crops_for_field(
                 "value_rs": round(myopic["value"], 2),
                 "gap_rs": round(myopic_gap, 2),
                 "is_suboptimal": myopic_gap > 1e-6,
+            },
+            "standalone_sum": {
+                "sequence": [],
+                "value_rs": round(solo_sum["value"], 2),
+                "gap_rs": round(solo_gap, 2),
+                "is_suboptimal": solo_gap > 1e-6 or solo_gap < -1e-6,
+                "note": "Adds each crop's solo profit — no rotation order",
             },
         },
         "quantum": {

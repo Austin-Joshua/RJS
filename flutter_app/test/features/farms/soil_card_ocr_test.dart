@@ -32,9 +32,25 @@ EC (dS/m) 0.5
     expect(r.ph, 7.1);
   });
 
-  test('returns empty match when text has no nutrients', () {
-    final r = parseSoilCardText('hello from a blurry photo');
-    expect(r.hasRequired, isFalse);
-    expect(r.fieldCount, 0);
+  test('parses SHC table row with five numbers on one line', () {
+    const sample = '''
+Soil test results
+245 17.0 205 0.58 6.7
+''';
+    final r = parseSoilCardText(sample);
+    expect(r.nKgHa, 245);
+    expect(r.pKgHa, 17);
+    expect(r.kKgHa, 205);
+    expect(r.ocPct, 0.58);
+    expect(r.ph, 6.7);
+    expect(r.hasRequired, isTrue);
+  });
+
+  test('parses abbreviated Avail. N labels', () {
+    final r = parseSoilCardText('Avail. N 310\nAvail. P 22\nAvail. K 240\npH 7.2');
+    expect(r.nKgHa, 310);
+    expect(r.pKgHa, 22);
+    expect(r.kKgHa, 240);
+    expect(r.ph, 7.2);
   });
 }

@@ -3,15 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a photo of your Soil Health Card so Crop Advisor can fill nitrogen, phosphorus, potassium and pH.</string>
+	<string>Take a photo of your Soil Health Card so FarmSync can fill nitrogen, phosphorus, potassium and pH.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choose a Soil Health Card photo so Crop Advisor can fill your soil readings.</string>
+	<string>Choose a Soil Health Card photo so FarmSync can fill your soil readings.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>FarmSync uses your location to place the farm on the map and match your district soil baseline.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Flutter App</string>
+	<string>FarmSync</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
