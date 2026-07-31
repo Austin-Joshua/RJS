@@ -185,6 +185,18 @@ class _ErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
+  static String _friendly(String message) {
+    final s = message.toLowerCase();
+    if (s.contains('404') || s.contains('not found')) {
+      return 'The server is missing the farms API (often an old deploy). '
+          'Pull the latest backend or point the app at a server that serves /api/v1/farms.\n\n$message';
+    }
+    if (s.contains('401') || s.contains('unauthorized')) {
+      return 'Sign-in failed for this server. Use Open demo farms or Google sign-in again.\n\n$message';
+    }
+    return message;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -195,7 +207,7 @@ class _ErrorState extends StatelessWidget {
         Text('Could not load your farms',
             textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
-        Text(message,
+        Text(_friendly(message),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.clay)),
         const SizedBox(height: 20),

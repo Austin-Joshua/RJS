@@ -86,8 +86,7 @@ class FarmOut {
   factory FarmOut.fromJson(Map<String, dynamic> j) {
     final c = j['centroid'] as Map<String, dynamic>? ?? const {};
     final ranking = j['latest_ranking'] as Map<String, dynamic>?;
-    final seqWrap = ranking?['sequence'];
-    final seq = seqWrap is Map ? (seqWrap['sequence'] as List<dynamic>? ?? const []) : const [];
+    final seq = _sequenceFromJson(ranking?['sequence']);
     return FarmOut(
       id: j['id'] as String,
       name: j['name'] as String? ?? '',
@@ -98,9 +97,19 @@ class FarmOut {
       state: j['state'] as String? ?? '',
       hasSoilCard: j['has_soil_card'] as bool? ?? false,
       soilCard: j['soil_card'] == null ? null : SoilCardOut.fromJson(j['soil_card'] as Map<String, dynamic>),
-      latestSequence: [for (final s in seq) s as String],
+      latestSequence: seq,
       latestValueRs: (ranking?['total_value_rs'] as num?)?.toDouble(),
     );
+  }
+
+  /// Accepts `["paddy", …]`, `{"sequence":[…]}`, or a space-joined string.
+  static List<String> _sequenceFromJson(dynamic raw) {
+    if (raw is List) return [for (final s in raw) '$s'];
+    if (raw is Map) return _sequenceFromJson(raw['sequence']);
+    if (raw is String && raw.trim().isNotEmpty) {
+      return raw.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    }
+    return const [];
   }
 }
 

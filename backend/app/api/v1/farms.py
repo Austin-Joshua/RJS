@@ -78,7 +78,8 @@ def _farm_summary(field: models.Field) -> dict[str, Any]:
         "has_soil_card": latest_card is not None,
         "latest_ranking": (
             {
-                "sequence": latest_plan.sequence,
+                # Flat list for the client — DB stores {"sequence":[…]}.
+                "sequence": (latest_plan.sequence or {}).get("sequence", []),
                 "total_value_rs": latest_plan.total_value_rs,
                 "solver": latest_plan.solver,
                 "created_at": latest_plan.created_at.isoformat() if latest_plan.created_at else None,

@@ -40,6 +40,8 @@ dependencies:
   fl_chart: ^1.2.0      # convergence trace in the quantum panel
   dio: ^5.11.0          # API client with the auth interceptor
   geolocator: ^14.0.3   # "use my current location" when adding a farm
+  image_picker: ^1.2.3
+  google_mlkit_text_recognition: ^0.16.0
 
 dev_dependencies:
   flutter_test:
