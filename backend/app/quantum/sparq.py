@@ -41,6 +41,7 @@ import math
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Literal
 
 import numpy as np
 import pennylane as qml
@@ -289,6 +290,60 @@ def measurement_histogram(
     return rows
 
 
+def warm_start_amplitudes(
+    problem: QUBOProblem,
+    *,
+    tau: float = DEFAULT_WARM_START_TAU,
+) -> tuple[list[list[float]], dict[str, dict[str, float]]]:
+    """Per-block Dicke-1 amplitudes from the LightGBM warm-start bias matrix."""
+    plot_ids = list(dict.fromkeys(p for p, _ in problem.variables))
+    amplitudes_per_block: list[list[float]] = []
+    report: dict[str, dict[str, float]] = {}
+    for plot_id, wires in zip(plot_ids, problem.blocks):
+        crops = [c for (p, c) in problem.variables if p == plot_id]
+        values = [problem.warm_start_bias.get((plot_id, c), 0.0) for c in crops]
+        amps = _softmax_amplitudes(values, tau)
+        amplitudes_per_block.append(amps)
+        report[plot_id] = {c: round(a * a, 4) for c, a in zip(crops, amps)}
+        del wires
+    return amplitudes_per_block, report
+
+
+def make_sparq_qnode(
+    problem: QUBOProblem,
+    amplitudes_per_block: list[list[float]],
+    depth: int,
+    *,
+    shots: int | None = None,
+    mode: Literal["sample", "probs"] = "sample",
+):
+    """Build a PennyLane QNode for SPARQ on ``default.qubit``.
+
+    ``mode='probs'`` returns the full Born distribution (exact simulation, no
+    shots). ``mode='sample'`` returns bitstring samples.
+    """
+    if not problem.blocks:
+        raise ValueError("SPARQ requires a simplex-encoded QUBO")
+    n = problem.n_qubits
+    cost_h, _const = _cost_hamiltonian(problem)
+    dev = qml.device("default.qubit", wires=n)
+
+    def circuit(params):
+        for amps, wires in zip(amplitudes_per_block, problem.blocks):
+            _prepare_block(amps, wires)
+        for layer in range(depth):
+            qml.qaoa.cost_layer(params[layer], cost_h)
+            _xy_ring_mixer(params[depth + layer], problem.blocks)
+        if mode == "probs":
+            return qml.probs(wires=range(n))
+        return qml.sample(wires=range(n))
+
+    qnode = qml.QNode(circuit, dev)
+    if shots is not None:
+        qnode = qml.set_shots(qnode, shots=shots)
+    return qnode
+
+
 def solve_sparq(
     problem: QUBOProblem,
     *,
@@ -324,33 +379,17 @@ def solve_sparq(
         raise ValueError("SPARQ requires a simplex-encoded QUBO (build_simplex_qubo)")
 
     n = problem.n_qubits
-    cost_h, _const = _cost_hamiltonian(problem)
 
-    # --- Warm start: bias each plot's block toward the crops the yield model
-    # rates highest, then let the mixer redistribute under the constraints.
-    plot_ids = list(dict.fromkeys(p for p, _ in problem.variables))
-    amplitudes_per_block: list[list[float]] = []
-    warm_start_report: dict[str, dict[str, float]] = {}
-    for plot_id, wires in zip(plot_ids, problem.blocks):
-        crops = [c for (p, c) in problem.variables if p == plot_id]
-        values = [problem.warm_start_bias.get((plot_id, c), 0.0) for c in crops]
-        amps = _softmax_amplitudes(values, warm_start_tau)
-        amplitudes_per_block.append(amps)
-        warm_start_report[plot_id] = {c: round(a * a, 4) for c, a in zip(crops, amps)}
-        del wires  # block wiring is read from problem.blocks inside the circuit
+    amplitudes_per_block, warm_start_report = warm_start_amplitudes(problem, tau=warm_start_tau)
 
     def build_qnode(depth: int, n_shots: int):
-        dev = qml.device("default.qubit", wires=n)
-
-        def circuit(params):
-            for amps, wires in zip(amplitudes_per_block, problem.blocks):
-                _prepare_block(amps, wires)
-            for layer in range(depth):
-                qml.qaoa.cost_layer(params[layer], cost_h)
-                _xy_ring_mixer(params[depth + layer], problem.blocks)
-            return qml.sample(wires=range(n))
-
-        return qml.set_shots(qml.QNode(circuit, dev), shots=n_shots)
+        return make_sparq_qnode(
+            problem,
+            amplitudes_per_block,
+            depth,
+            shots=n_shots,
+            mode="sample",
+        )
 
     start = time.monotonic()
     timed_out = False

@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./.venv/Scripts/python.exe -m pytest tests/ -q)",
+      "Bash(./.venv/Scripts/python.exe -m pytest tests/test_quantum.py -q)",
+      "Bash(./.venv/Scripts/python.exe -m scripts.benchmark_qaoa)",
+      "Bash(./.venv/Scripts/python.exe pipeline.py)",
+      "Bash(git stash *)",
+      "Bash(./.venv/Scripts/python.exe \"C:/Users/austi/AppData/Local/Temp/claude/c--Users-austi-OneDrive-Desktop-RJS-RJS/6a69da5a-5b41-4346-bed9-92d70c5e95bd/scratchpad/e2e_risk.py\")",
+      "Bash(sed -i 's/for kappa in \\(0.0, 0.2, 0.5, 1.0, 1.5\\):/for kappa in \\(0.0, 0.75, 1.5, 2.0, 2.5, 3.0\\):/' \"C:/Users/austi/AppData/Local/Temp/claude/c--Users-austi-OneDrive-Desktop-RJS-RJS/6a69da5a-5b41-4346-bed9-92d70c5e95bd/scratchpad/e2e_risk.py\")",
+      "Bash(./.venv/Scripts/python.exe -c ' *)",
+      "Bash(RUN_BASELINE_QAOA=false ./.venv/Scripts/python.exe \"C:/Users/austi/AppData/Local/Temp/claude/c--Users-austi-OneDrive-Desktop-RJS-RJS/6a69da5a-5b41-4346-bed9-92d70c5e95bd/scratchpad/e2e_risk.py\")",
+      "Bash(./.venv/Scripts/python.exe \"C:/Users/austi/AppData/Local/Temp/claude/c--Users-austi-OneDrive-Desktop-RJS-RJS/6a69da5a-5b41-4346-bed9-92d70c5e95bd/scratchpad/probe_rotation.py\")",
+      "Bash(python -)",
+      "Bash(rm -f data/fixtures/signals_demo.json)",
+      "Bash(rmdir data/fixtures)",
+      "Bash(./.venv/Scripts/python.exe -m pytest tests/test_api.py -q)",
+      "Bash(sed -i 's/^import random$/import pytest\\\\nimport random/' tests/test_quantum.py)",
+      "Bash(rm -f scripts/seed_demo.py)",
+      "Bash(./.venv/Scripts/python.exe -m scripts.train_model)",
+      "Bash(./.venv/Scripts/python.exe -c *)",
+      "Bash(./.venv/Scripts/python.exe -m scripts.build_training_set)",
+      "Bash(rm -f tests/_test.db)",
+      "Bash(./.venv/Scripts/python.exe -m pytest tests/test_ml.py -q)"
+    ]
+  }
+}

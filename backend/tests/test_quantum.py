@@ -649,3 +649,18 @@ def test_sampled_plans_are_better_than_random() -> None:
     assert trials, "no solvable instances generated"
     assert beaten == trials, f"only {beaten}/{trials} instances beat uniform random on plan quality"
     assert statistics.mean(qualities) > 0.65, f"mean sampled quality {statistics.mean(qualities):.3f} too close to random"
+
+
+def test_pennylane_simulate_returns_born_probs() -> None:
+    """PennyLane default.qubit exact simulation for the rotation SPARQ circuit."""
+    from app.quantum.pennylane_sim import simulate_rotation_demo
+
+    out = simulate_rotation_demo(layers=1, top_k=3)
+    assert out["device"] == "default.qubit"
+    assert out["n_qubits"] == 9
+    assert out["circuit_diagram"]
+    assert len(out["top_outcomes"]) >= 1
+    assert 0.99 < sum(r["probability"] for r in out["top_outcomes"]) <= 1.0 or out["top_outcomes"][0]["probability"] > 0
+    top = out["top_outcomes"][0]
+    assert top["probability"] > 0
+    assert "sequence" in top.get("label", {}) or top["bitstring"]

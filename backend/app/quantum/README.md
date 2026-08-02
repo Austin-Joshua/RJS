@@ -13,5 +13,6 @@ This folder implements that doc:
 | `qubo.py` | Simplex / slack encodings |
 | `risk.py` | Mean–variance from LightGBM bands |
 | `quantum_optimizer.py` | Legacy transverse-field QAOA |
+| `pennylane_sim.py` | PennyLane `default.qubit` exact probs + `qml.draw` |
 | `classical_fallback.py` | Brute force / SA |
 | `benchmark.py` | SPARQ vs legacy metrics |
